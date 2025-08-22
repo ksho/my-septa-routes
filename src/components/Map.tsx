@@ -206,11 +206,13 @@ export default function Map() {
           let coordinateSets: [number, number][][] = [];
           
           if (feature.geometry.type === 'LineString') {
-            coordinateSets = [feature.geometry.coordinates.map(coord => 
+            const coords = feature.geometry.coordinates as [number, number][];
+            coordinateSets = [coords.map(coord => 
               [coord[1], coord[0]] as [number, number]
             )];
           } else if (feature.geometry.type === 'MultiLineString') {
-            coordinateSets = feature.geometry.coordinates.map(lineString =>
+            const coords = feature.geometry.coordinates as [number, number][][];
+            coordinateSets = coords.map(lineString =>
               lineString.map(coord => [coord[1], coord[0]] as [number, number])
             );
           }
