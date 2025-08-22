@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl } from 'react-leaflet';
 import { useRouter, useSearchParams } from 'next/navigation';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -306,13 +306,14 @@ export default function Map() {
         center={PHILADELPHIA_CENTER}
         zoom={13}
         className="w-full h-full"
-        zoomControl={true}
+        zoomControl={false}
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           maxZoom={20}
         />
+        <ZoomControl position="bottomright" />
         
         {/* Official SEPTA route paths */}
         {showPaths && routeGeometry.map((feature, index) => {

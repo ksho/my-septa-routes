@@ -16,8 +16,8 @@ export default function Home() {
   return (
     <div className="w-full h-screen">
       <div className="absolute top-4 left-4 z-[1000] bg-white p-3 rounded-lg shadow-lg">
-        <h1 className="text-lg font-bold">SEPTA Real-Time Transit</h1>
-        <p className="text-sm text-gray-600">Routes: 57, 47, 42, 9, 12, 21</p>
+        <h1 className="text-lg font-bold">SEPTA LIVE</h1>
+        <p className="text-sm text-gray-600">By Karl Shouler</p>
       </div>
       <Map />
     </div>
