@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { useRouter, useSearchParams } from 'next/navigation';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // Center City Philadelphia coordinates
 const PHILADELPHIA_CENTER = [39.9526, -75.1652] as [number, number];
 
-// SEPTA bus routes we want to track (subway lines not available via TransitView API)
-const ROUTES = ['57', '47', '42', '9', '12', '21', '29'];
+// Default SEPTA bus routes (used when no routes in URL)
+const DEFAULT_ROUTES = ['57', '47', '42', '9', '12', '21', '29'];
 
 interface Vehicle {
   lat: number;
@@ -21,6 +22,11 @@ interface Vehicle {
   late: number;
 }
 
+interface Route {
+  number: string;
+  name: string;
+}
+
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -29,20 +35,44 @@ L.Icon.Default.mergeOptions({
   shadowUrl: '/leaflet/marker-shadow.png',
 });
 
-// Route color mapping for better visualization
+// Extended route color mapping for better visualization
 const ROUTE_COLORS: { [key: string]: string } = {
-  '9': '#FF6B6B',
-  '12': '#4ECDC4', 
-  '21': '#45B7D1',
-  '29': '#FF8C42',
-  '42': '#96CEB4',
-  '47': '#FFEAA7',
-  '57': '#DDA0DD',
+  '2': '#FF5722', '3': '#E91E63', '4': '#9C27B0', '5': '#673AB7',
+  '6': '#3F51B5', '7': '#2196F3', '9': '#FF6B6B', '12': '#4ECDC4',
+  '14': '#009688', '16': '#4CAF50', '17': '#8BC34A', '18': '#CDDC39',
+  '20': '#FFEB3B', '21': '#45B7D1', '22': '#FF9800', '23': '#FF5722',
+  '24': '#795548', '25': '#607D8B', '26': '#F44336', '27': '#E91E63',
+  '28': '#9C27B0', '29': '#FF8C42', '32': '#3F51B5', '33': '#2196F3',
+  '37': '#00BCD4', '38': '#009688', '39': '#4CAF50', '40': '#8BC34A',
+  '41': '#CDDC39', '42': '#96CEB4', '43': '#FF9800', '44': '#FF5722',
+  '45': '#795548', '46': '#607D8B', '47': '#FFEAA7', '48': '#E91E63',
+  '49': '#9C27B0', '51': '#673AB7', '52': '#3F51B5', '53': '#2196F3',
+  '54': '#00BCD4', '55': '#009688', '56': '#4CAF50', '57': '#DDA0DD',
+  '58': '#CDDC39', '59': '#FFEB3B', '60': '#FF9800', '61': '#FF5722',
+  '63': '#607D8B', '64': '#F44336', '65': '#E91E63', '66': '#9C27B0',
+  '67': '#673AB7', '68': '#3F51B5', '70': '#2196F3', '71': '#00BCD4',
+  '75': '#009688', '77': '#4CAF50', '79': '#8BC34A', '81': '#CDDC39',
+  '82': '#FFEB3B', '84': '#FF9800', '93': '#FF5722', '94': '#795548',
+  '96': '#607D8B', '97': '#F44336', '98': '#E91E63', '99': '#9C27B0',
+  'K': '#FF6B35',
+};
+
+// Generate a color for routes not in the predefined list
+const generateRouteColor = (route: string): string => {
+  if (ROUTE_COLORS[route]) return ROUTE_COLORS[route];
+  
+  // Generate a consistent color based on the route string
+  let hash = 0;
+  for (let i = 0; i < route.length; i++) {
+    hash = route.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 70%, 50%)`;
 };
 
 // Create colored markers for each route
 const createRouteIcon = (route: string) => {
-  const color = ROUTE_COLORS[route] || '#666666';
+  const color = generateRouteColor(route);
   
   return L.divIcon({
     html: `
@@ -88,15 +118,84 @@ interface RouteFeature {
 }
 
 export default function Map() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPaths, setShowPaths] = useState(true);
   const [routeGeometry, setRouteGeometry] = useState<RouteFeature[]>([]);
+  const [selectedRoutes, setSelectedRoutes] = useState<string[]>([]);
+  const [availableRoutes, setAvailableRoutes] = useState<Route[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Get routes from URL or use defaults
+  const getRoutesFromURL = useCallback(() => {
+    const routesParam = searchParams.get('routes');
+    if (routesParam) {
+      return routesParam.split(',').map(r => r.trim()).filter(r => r);
+    }
+    return DEFAULT_ROUTES;
+  }, [searchParams]);
+  
+  // Update URL when routes change
+  const updateURL = useCallback((routes: string[]) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (routes.length > 0) {
+      params.set('routes', routes.join(','));
+    } else {
+      params.delete('routes');
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+  
+  // Add a route
+  const addRoute = useCallback((routeNumber: string) => {
+    if (selectedRoutes.length >= 10) {
+      alert('Maximum of 10 routes allowed');
+      return;
+    }
+    if (!selectedRoutes.includes(routeNumber)) {
+      const newRoutes = [...selectedRoutes, routeNumber];
+      setSelectedRoutes(newRoutes);
+      updateURL(newRoutes);
+    }
+    setSearchQuery('');
+  }, [selectedRoutes, updateURL]);
+  
+  // Remove a route
+  const removeRoute = useCallback((routeNumber: string) => {
+    const newRoutes = selectedRoutes.filter(r => r !== routeNumber);
+    setSelectedRoutes(newRoutes);
+    updateURL(newRoutes);
+  }, [selectedRoutes, updateURL]);
+  
+  // Fetch available routes for search
+  const fetchAvailableRoutes = async () => {
+    try {
+      const response = await fetch('/api/all-routes');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableRoutes(data.routes || []);
+      }
+    } catch (error) {
+      console.error('Error fetching available routes:', error);
+    }
+  };
+  
+  // Filter routes based on search query
+  const filteredRoutes = availableRoutes.filter(route => 
+    !selectedRoutes.includes(route.number) &&
+    (route.number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     route.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  ).slice(0, 10); // Limit search results
 
   const fetchRouteGeometry = async () => {
+    if (selectedRoutes.length === 0) return;
+    
     try {
-      console.log('Fetching route geometry for routes:', ROUTES.join(','));
-      const response = await fetch(`/api/routes?routes=${ROUTES.join(',')}`);
+      console.log('Fetching route geometry for routes:', selectedRoutes.join(','));
+      const response = await fetch(`/api/routes?routes=${selectedRoutes.join(',')}`);
       
       if (!response.ok) {
         console.warn('Failed to fetch route geometry data', response.status);
@@ -118,11 +217,17 @@ export default function Map() {
   };
 
   const fetchVehicleData = async () => {
+    if (selectedRoutes.length === 0) {
+      setVehicles([]);
+      setLoading(false);
+      return;
+    }
+    
     try {
       const allVehicles: Vehicle[] = [];
       
       // Fetch data for each route using our API proxy
-      for (const route of ROUTES) {
+      for (const route of selectedRoutes) {
         try {
           const response = await fetch(`/api/septa?route=${route}`);
           
@@ -172,16 +277,28 @@ export default function Map() {
     }
   };
 
+  // Initialize routes from URL on component mount
   useEffect(() => {
-    // Fetch route geometry once on component mount
+    const routes = getRoutesFromURL();
+    setSelectedRoutes(routes);
+    fetchAvailableRoutes();
+  }, [getRoutesFromURL]);
+  
+  // Fetch data when selected routes change
+  useEffect(() => {
     fetchRouteGeometry();
-    
-    // Fetch vehicle data immediately and set up interval
     fetchVehicleData();
-    const interval = setInterval(fetchVehicleData, 5000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoutes]);
+  
+  // Set up vehicle data polling
+  useEffect(() => {
+    if (selectedRoutes.length === 0) return;
     
+    const interval = setInterval(fetchVehicleData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoutes]);
 
   return (
     <div className="w-full h-screen">
@@ -224,7 +341,7 @@ export default function Map() {
               key={`route-${route}-${index}-${segmentIndex}`}
               positions={coordinates}
               pathOptions={{
-                color: ROUTE_COLORS[route] || '#666666',
+                color: generateRouteColor(route),
                 weight: 4,
                 opacity: 0.7,
               }}
@@ -240,7 +357,7 @@ export default function Map() {
           >
             <Popup>
               <div className="p-2 min-w-[200px]">
-                <h3 className="font-bold text-lg mb-2" style={{color: ROUTE_COLORS[vehicle.label] || '#666'}}>
+                <h3 className="font-bold text-lg mb-2" style={{color: generateRouteColor(vehicle.label)}}>
                   Route {vehicle.label}
                 </h3>
                 <div className="space-y-1 text-sm">
@@ -269,36 +386,71 @@ export default function Map() {
         </div>
       )}
       
-      <div className="absolute bottom-4 left-4 bg-white p-3 rounded-lg shadow-lg z-[1000] max-w-xs">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-bold text-sm">Vehicle Count: {vehicles.length}</h3>
-          <button
-            onClick={() => setShowPaths(!showPaths)}
-            className={`px-2 py-1 text-xs rounded ${
-              showPaths 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-gray-200 text-gray-700'
-            }`}
-          >
-{showPaths ? 'Hide Routes' : 'Show Routes'}
-          </button>
+      <div className="absolute bottom-4 left-4 bg-white p-3 rounded-lg shadow-lg z-[1000] w-64">
+        <h3 className="font-bold text-sm mb-2">Routes ({selectedRoutes.length}/10)</h3>
+        
+        {/* Route Search Interface */}
+        <div className="mb-3 border-b pb-3">
+          <input
+            type="text"
+            placeholder="Search routes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-2 py-1 text-xs border rounded focus:outline-none focus:border-blue-500 mb-2"
+            disabled={selectedRoutes.length >= 10}
+          />
+          {searchQuery && (
+            <div className="mt-1 max-h-24 overflow-y-auto text-xs">
+              {filteredRoutes.length === 0 ? (
+                <div className="text-gray-500 py-1">No routes found</div>
+              ) : (
+                filteredRoutes.map(route => (
+                  <button
+                    key={route.number}
+                    onClick={() => addRoute(route.number)}
+                    className="w-full text-left px-2 py-1 hover:bg-gray-100 rounded"
+                    disabled={selectedRoutes.length >= 10}
+                  >
+                    <span className="font-semibold">{route.number}</span> - {route.name}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
+        
+        {/* Selected Routes List */}
         <div className="text-xs space-y-1">
-          {ROUTES.map(route => {
-            const count = vehicles.filter(v => v.label === route).length;
-            return (
-              <div key={route} className="flex items-center justify-between">
-                <div className="flex items-center space-x-1">
+          {selectedRoutes.length === 0 ? (
+            <div className="text-gray-500 text-center py-2">
+              No routes selected. Click &quot;+ Add&quot; to add routes.
+            </div>
+          ) : (
+            selectedRoutes.map(route => {
+              const count = vehicles.filter(v => v.label === route).length;
+              return (
+                <div key={route} className="grid grid-cols-[16px_1fr_24px_20px] gap-2 items-center">
                   <div 
                     className="w-3 h-3 rounded-full" 
-                    style={{backgroundColor: ROUTE_COLORS[route]}}
+                    style={{backgroundColor: generateRouteColor(route)}}
                   ></div>
                   <span>Route {route}</span>
+                  <span className="italic text-right">({count})</span>
+                  <button
+                    onClick={() => removeRoute(route)}
+                    className="text-red-500 hover:text-red-700 text-sm font-bold text-center"
+                    title="Remove route"
+                  >
+                    ×
+                  </button>
                 </div>
-                <span className="font-bold">{count}</span>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
+        </div>
+        
+        <div className="mt-2 pt-2 border-t text-xs text-gray-500">
+          Total vehicles: {vehicles.length}
         </div>
       </div>
     </div>
