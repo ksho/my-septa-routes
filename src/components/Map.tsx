@@ -371,19 +371,33 @@ export default function Map() {
             icon={createRouteIcon(vehicle.label)}
           >
             <Popup>
-              <div className="p-3 min-w-[200px]">
-                <h3 className="font-bold text-lg mb-2 text-gray-900 dark:text-white" style={{color: generateRouteColor(vehicle.label)}}>
+              <div style={{ padding: '12px', minWidth: '200px' }}>
+                <h3 style={{ 
+                  fontWeight: 'bold', 
+                  fontSize: '18px', 
+                  marginBottom: '8px', 
+                  color: generateRouteColor(vehicle.label)
+                }}>
                   Route {vehicle.label}
                 </h3>
-                <div className="space-y-1 text-sm text-gray-700 dark:text-gray-200">
-                  <p><span className="font-semibold text-gray-900 dark:text-white">Vehicle:</span> {vehicle.VehicleID}</p>
-                  <p><span className="font-semibold text-gray-900 dark:text-white">Direction:</span> {vehicle.Direction}</p>
-                  <p><span className="font-semibold text-gray-900 dark:text-white">Destination:</span> {vehicle.destination}</p>
+                <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
+                  <p style={{ marginBottom: '4px' }}>
+                    <span className="popup-label">Vehicle:</span> 
+                    <span className="popup-text"> {vehicle.VehicleID}</span>
+                  </p>
+                  <p style={{ marginBottom: '4px' }}>
+                    <span className="popup-label">Direction:</span> 
+                    <span className="popup-text"> {vehicle.Direction}</span>
+                  </p>
+                  <p style={{ marginBottom: '4px' }}>
+                    <span className="popup-label">Destination:</span> 
+                    <span className="popup-text"> {vehicle.destination}</span>
+                  </p>
                   {vehicle.late > 0 && (
-                    <p className="text-red-600 dark:text-red-400 font-semibold">⚠️ Late: {vehicle.late} min</p>
+                    <p className="popup-late" style={{ marginBottom: '0' }}>⚠️ Late: {vehicle.late} min</p>
                   )}
                   {vehicle.late === 0 && (
-                    <p className="text-green-600 dark:text-green-400 font-semibold">✅ On time</p>
+                    <p className="popup-ontime" style={{ marginBottom: '0' }}>✅ On time</p>
                   )}
                 </div>
               </div>
