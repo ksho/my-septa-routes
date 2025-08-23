@@ -82,8 +82,9 @@ const createRouteIcon = (route: string) => {
         width: 24px;
         height: 24px;
         border-radius: 50%;
-        border: 2px solid white;
+        border: 2px solid rgba(255,255,255,0.8);
         box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        opacity: 0.85;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -357,7 +358,7 @@ export default function Map() {
               pathOptions={{
                 color: generateRouteColor(route),
                 weight: 4,
-                opacity: 0.7,
+                opacity: 0.6,
               }}
             />
           ));
