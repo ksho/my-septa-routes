@@ -371,19 +371,19 @@ export default function Map() {
             icon={createRouteIcon(vehicle.label)}
           >
             <Popup>
-              <div className="p-2 min-w-[200px]">
-                <h3 className="font-bold text-lg mb-2" style={{color: generateRouteColor(vehicle.label)}}>
+              <div className="p-3 min-w-[200px]">
+                <h3 className="font-bold text-lg mb-2 text-gray-900 dark:text-white" style={{color: generateRouteColor(vehicle.label)}}>
                   Route {vehicle.label}
                 </h3>
-                <div className="space-y-1 text-sm">
-                  <p><span className="font-semibold">Vehicle:</span> {vehicle.VehicleID}</p>
-                  <p><span className="font-semibold">Direction:</span> {vehicle.Direction}</p>
-                  <p><span className="font-semibold">Destination:</span> {vehicle.destination}</p>
+                <div className="space-y-1 text-sm text-gray-700 dark:text-gray-200">
+                  <p><span className="font-semibold text-gray-900 dark:text-white">Vehicle:</span> {vehicle.VehicleID}</p>
+                  <p><span className="font-semibold text-gray-900 dark:text-white">Direction:</span> {vehicle.Direction}</p>
+                  <p><span className="font-semibold text-gray-900 dark:text-white">Destination:</span> {vehicle.destination}</p>
                   {vehicle.late > 0 && (
-                    <p className="text-red-600 font-semibold">⚠️ Late: {vehicle.late} min</p>
+                    <p className="text-red-600 dark:text-red-400 font-semibold">⚠️ Late: {vehicle.late} min</p>
                   )}
                   {vehicle.late === 0 && (
-                    <p className="text-green-600 font-semibold">✅ On time</p>
+                    <p className="text-green-600 dark:text-green-400 font-semibold">✅ On time</p>
                   )}
                 </div>
               </div>
