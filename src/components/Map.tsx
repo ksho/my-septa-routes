@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl } from 'react-leaflet';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -120,14 +121,23 @@ interface RouteFeature {
 export default function Map() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { theme, systemTheme } = useTheme();
   
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showPaths, setShowPaths] = useState(true);
   const [routeGeometry, setRouteGeometry] = useState<RouteFeature[]>([]);
   const [selectedRoutes, setSelectedRoutes] = useState<string[]>([]);
   const [availableRoutes, setAvailableRoutes] = useState<Route[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  // Determine if we should use dark theme
+  const isDark = mounted ? (theme === 'dark' || (theme === 'system' && systemTheme === 'dark')) : false;
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Get routes from URL or use defaults
   const getRoutesFromURL = useCallback(() => {
@@ -309,14 +319,17 @@ export default function Map() {
         zoomControl={false}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          url={isDark 
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          }
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           maxZoom={20}
         />
         <ZoomControl position="bottomright" />
         
         {/* Official SEPTA route paths */}
-        {showPaths && routeGeometry.map((feature, index) => {
+        {routeGeometry.map((feature, index) => {
           const route = feature.properties.LineAbbr;
           console.log('Processing route:', route, 'geometry type:', feature.geometry.type);
           
@@ -379,79 +392,108 @@ export default function Map() {
       </MapContainer>
       
       {loading && (
-        <div className="absolute top-20 left-4 bg-white p-3 rounded-lg shadow-lg z-[1000]">
+        <div className="absolute top-20 left-4 bg-white/65 dark:bg-gray-800/65 backdrop-blur-sm p-3 rounded-lg shadow-lg z-[1000]">
           <div className="flex items-center space-x-2">
             <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-            <span>Loading vehicle data...</span>
+            <span className="text-gray-900 dark:text-white">Loading vehicle data...</span>
           </div>
         </div>
       )}
       
-      <div className="absolute bottom-4 left-4 bg-white p-3 rounded-lg shadow-lg z-[1000] w-64">
-        <h3 className="font-bold text-sm mb-2">Routes ({selectedRoutes.length}/10)</h3>
+      <div className="absolute bottom-4 left-4 bg-white/65 dark:bg-gray-800/65 backdrop-blur-sm rounded-lg shadow-lg z-[1000] w-64 transition-all duration-300 ease-in-out">
+        <div className="flex items-center justify-between p-3 pb-2">
+          <h3 className="font-bold text-sm text-gray-900 dark:text-white">Routes ({selectedRoutes.length}/10)</h3>
+          <button
+            onClick={() => setIsLegendCollapsed(!isLegendCollapsed)}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors duration-200"
+            title={isLegendCollapsed ? 'Expand legend' : 'Collapse legend'}
+          >
+            <svg
+              className={`w-4 h-4 text-gray-600 dark:text-gray-300 transition-transform duration-200 ${
+                isLegendCollapsed ? 'rotate-180' : ''
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+        </div>
         
-        {/* Route Search Interface */}
-        <div className="mb-3 border-b pb-3">
+        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          isLegendCollapsed ? 'max-h-0' : 'max-h-[400px]'
+        }`}>
+          <div className="px-3 pb-3">
+            {/* Route Search Interface */}
+            <div className="mb-3 border-b border-gray-200 dark:border-gray-600 pb-3">
           <input
             type="text"
             placeholder="Search routes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-2 py-1 text-xs border rounded focus:outline-none focus:border-blue-500 mb-2"
+            className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 mb-2 bg-white/80 dark:bg-gray-700/80 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             disabled={selectedRoutes.length >= 10}
           />
-          {searchQuery && (
-            <div className="mt-1 max-h-24 overflow-y-auto text-xs">
-              {filteredRoutes.length === 0 ? (
-                <div className="text-gray-500 py-1">No routes found</div>
-              ) : (
-                filteredRoutes.map(route => (
-                  <button
-                    key={route.number}
-                    onClick={() => addRoute(route.number)}
-                    className="w-full text-left px-2 py-1 hover:bg-gray-100 rounded"
-                    disabled={selectedRoutes.length >= 10}
-                  >
-                    <span className="font-semibold">{route.number}</span> - {route.name}
-                  </button>
-                ))
+              {searchQuery && (
+                <div className="mt-1 max-h-24 overflow-y-auto text-xs">
+                  {filteredRoutes.length === 0 ? (
+                    <div className="text-gray-500 dark:text-gray-400 py-1">No routes found</div>
+                  ) : (
+                    filteredRoutes.map(route => (
+                      <button
+                        key={route.number}
+                        onClick={() => addRoute(route.number)}
+                        className="w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-900 dark:text-white"
+                        disabled={selectedRoutes.length >= 10}
+                      >
+                        <span className="font-semibold">{route.number}</span> - {route.name}
+                      </button>
+                    ))
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
-        
-        {/* Selected Routes List */}
-        <div className="text-xs space-y-1">
-          {selectedRoutes.length === 0 ? (
-            <div className="text-gray-500 text-center py-2">
-              No routes selected. Click &quot;+ Add&quot; to add routes.
-            </div>
-          ) : (
-            selectedRoutes.map(route => {
-              const count = vehicles.filter(v => v.label === route).length;
-              return (
-                <div key={route} className="grid grid-cols-[16px_1fr_24px_20px] gap-2 items-center">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{backgroundColor: generateRouteColor(route)}}
-                  ></div>
-                  <span>Route {route}</span>
-                  <span className="italic text-right">({count})</span>
-                  <button
-                    onClick={() => removeRoute(route)}
-                    className="text-red-500 hover:text-red-700 text-sm font-bold text-center"
-                    title="Remove route"
-                  >
-                    ×
-                  </button>
+            
+            {/* Selected Routes List */}
+            <div className="text-xs space-y-1">
+              {selectedRoutes.length === 0 ? (
+                <div className="text-gray-500 dark:text-gray-400 text-center py-2">
+                  No routes selected. Click &quot;+ Add&quot; to add routes.
                 </div>
-              );
-            })
-          )}
-        </div>
-        
-        <div className="mt-2 pt-2 border-t text-xs text-gray-500">
-          Total vehicles: {vehicles.length}
+              ) : (
+                selectedRoutes.map(route => {
+                  const count = vehicles.filter(v => v.label === route).length;
+                  return (
+                    <div key={route} className="grid grid-cols-[16px_1fr_24px_20px] gap-2 items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{backgroundColor: generateRouteColor(route)}}
+                      ></div>
+                      <span className="text-gray-900 dark:text-white">Route {route}</span>
+                      <span className="italic text-right text-gray-600 dark:text-gray-300">({count})</span>
+                      <button
+                        onClick={() => removeRoute(route)}
+                        className="text-red-500 hover:text-red-700 text-sm font-bold text-center"
+                        title="Remove route"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-500 dark:text-gray-400">
+              Total vehicles: {vehicles.length}
+            </div>
+          </div>
         </div>
       </div>
     </div>
