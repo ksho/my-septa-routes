@@ -38,15 +38,19 @@ export async function GET(request: NextRequest) {
     const transformedFeatures = data.features?.map((feature: {
       properties: { Route_Name: string; Miles: number };
       geometry: { type: string; coordinates: number[][] };
-    }) => ({
-      type: 'Feature',
-      properties: {
-        LineAbbr: feature.properties.Route_Name,
-        LineName: feature.properties.Route_Name,
-        Miles: feature.properties.Miles
-      },
-      geometry: feature.geometry
-    })) || [];
+    }) => {
+      // Map SEPTA's route names back to our expected format
+      const ourRouteName = mapFromSeptaLineName(feature.properties.Route_Name);
+      return {
+        type: 'Feature',
+        properties: {
+          LineAbbr: ourRouteName,
+          LineName: ourRouteName,
+          Miles: feature.properties.Miles
+        },
+        geometry: feature.geometry
+      };
+    }) || [];
 
     const geoJsonResponse = {
       type: 'FeatureCollection',
@@ -88,4 +92,25 @@ function mapToSeptaLineName(lineName: string): string {
   };
   
   return lineMapping[lineName] || lineName;
+}
+
+// Map SEPTA's route names back to our expected format
+function mapFromSeptaLineName(septaName: string): string {
+  const reverseMapping: { [key: string]: string } = {
+    'Airport': 'Airport Line',
+    'Chestnut Hill East': 'Chestnut Hill East',
+    'Chestnut Hill West': 'Chestnut Hill West',
+    'Cynwyd': 'Cynwyd',
+    'Fox Chase': 'Fox Chase',
+    'Lansdale/Doylestown': 'Lansdale/Doylestown',
+    'Media/Wawa': 'Media/Wawa',
+    'Manayunk/Norristown': 'Norristown',
+    'Paoli/Thorndale': 'Paoli/Thorndale',
+    'Trenton': 'Trenton',
+    'Warminster': 'Warminster',
+    'West Trenton': 'West Trenton',
+    'Wilmington/Newark': 'Wilmington/Newark'
+  };
+  
+  return reverseMapping[septaName] || septaName;
 }
