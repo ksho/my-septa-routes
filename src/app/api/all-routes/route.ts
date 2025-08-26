@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // Query for all routes to get available route numbers
-    const response = await fetch(
+    const allRoutes: { number: string; name: string; type: string }[] = [];
+
+    // Fetch bus routes from existing ArcGIS API
+    const busResponse = await fetch(
       `https://services2.arcgis.com/9U43PSoL47wawX5S/ArcGIS/rest/services/Transit_Routes_(Spring_2025)/FeatureServer/0/query?` +
       `where=1=1` +
       `&outFields=LineAbbr,LineName` +
@@ -11,31 +13,68 @@ export async function GET() {
       `&f=json`
     );
 
-    if (!response.ok) {
-      throw new Error(`SEPTA ArcGIS API responded with status: ${response.status}`);
+    if (busResponse.ok) {
+      const busData = await busResponse.json();
+      const busRoutes = busData.features
+        .map((feature: { attributes: { LineAbbr: string; LineName: string } }) => ({
+          number: feature.attributes.LineAbbr,
+          name: feature.attributes.LineName,
+          type: feature.attributes.LineAbbr.startsWith('T') ? 'trolley' : 'bus'
+        }))
+        .filter((route: { number: string; name: string }) => route.number && route.name);
+      
+      allRoutes.push(...busRoutes);
     }
 
-    const data = await response.json();
-    
-    // Extract unique route numbers and names
-    const routes = data.features
-      .map((feature: { attributes: { LineAbbr: string; LineName: string } }) => ({
-        number: feature.attributes.LineAbbr,
-        name: feature.attributes.LineName
-      }))
-      .filter((route: { number: string; name: string }) => route.number && route.name)
-      .sort((a: { number: string }, b: { number: string }) => {
-        // Sort numerically for numbers, alphabetically for letters
+    // Add Regional Rail lines (major lines)
+    const regionalRailLines = [
+      { number: 'RRAirport Line', name: 'Airport Line', type: 'rail' },
+      { number: 'RRChestnut Hill East', name: 'Chestnut Hill East', type: 'rail' },
+      { number: 'RRChestnut Hill West', name: 'Chestnut Hill West', type: 'rail' },
+      { number: 'RRCynwyd', name: 'Cynwyd Line', type: 'rail' },
+      { number: 'RRFox Chase', name: 'Fox Chase Line', type: 'rail' },
+      { number: 'RRLansdale/Doylestown', name: 'Lansdale/Doylestown Line', type: 'rail' },
+      { number: 'RRMedia/Wawa', name: 'Media/Wawa Line', type: 'rail' },
+      { number: 'RRNorristown', name: 'Norristown Line', type: 'rail' },
+      { number: 'RRPaoli/Thorndale', name: 'Paoli/Thorndale Line', type: 'rail' },
+      { number: 'RRTrenton', name: 'Trenton Line', type: 'rail' },
+      { number: 'RRWarminster', name: 'Warminster Line', type: 'rail' },
+      { number: 'RRWest Trenton', name: 'West Trenton Line', type: 'rail' },
+      { number: 'RRWilmington/Newark', name: 'Wilmington/Newark Line', type: 'rail' }
+    ];
+
+    allRoutes.push(...regionalRailLines);
+
+    // Add Trolley lines (ensure T prefix)
+    const trolleyLines = [
+      { number: 'T101', name: 'Media/102nd Street Line', type: 'trolley' },
+      { number: 'T102', name: 'Sharon Hill/102nd Street Line', type: 'trolley' }
+    ];
+
+    allRoutes.push(...trolleyLines);
+
+    // Sort routes: buses first (numerically), then trolleys, then rail
+    const sortedRoutes = allRoutes.sort((a, b) => {
+      // Group by type first
+      if (a.type !== b.type) {
+        const typeOrder = { 'bus': 1, 'trolley': 2, 'rail': 3 };
+        return typeOrder[a.type as keyof typeof typeOrder] - typeOrder[b.type as keyof typeof typeOrder];
+      }
+
+      // Within same type, sort appropriately
+      if (a.type === 'bus') {
         const aNum = parseInt(a.number);
         const bNum = parseInt(b.number);
         if (!isNaN(aNum) && !isNaN(bNum)) {
           return aNum - bNum;
         }
-        return a.number.localeCompare(b.number);
-      });
+      }
+      
+      return a.number.localeCompare(b.number);
+    });
 
     // Remove duplicates based on route number
-    const uniqueRoutes = routes.filter((route: { number: string; name: string }, index: number, self: { number: string; name: string }[]) => 
+    const uniqueRoutes = sortedRoutes.filter((route, index, self) => 
       index === self.findIndex(r => r.number === route.number)
     );
     

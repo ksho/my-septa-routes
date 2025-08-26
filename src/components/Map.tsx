@@ -10,8 +10,8 @@ import 'leaflet/dist/leaflet.css';
 // Center City Philadelphia coordinates
 const PHILADELPHIA_CENTER = [39.9526, -75.1652] as [number, number];
 
-// Default SEPTA bus routes (used when no routes in URL)
-const DEFAULT_ROUTES = ['57', '47', '42', '9', '12', '21', '29'];
+// Default SEPTA routes (used when no routes in URL)
+const DEFAULT_ROUTES = ['57', '47', '42', '9', '12', '21', '29', 'RRNorristown'];
 
 interface Vehicle {
   lat: number;
@@ -26,6 +26,7 @@ interface Vehicle {
 interface Route {
   number: string;
   name: string;
+  type?: string;
 }
 
 // Fix for default markers in react-leaflet
@@ -38,6 +39,7 @@ L.Icon.Default.mergeOptions({
 
 // Extended route color mapping for better visualization
 const ROUTE_COLORS: { [key: string]: string } = {
+  // Bus routes (colorful)
   '2': '#FF5722', '3': '#E91E63', '4': '#9C27B0', '5': '#673AB7',
   '6': '#3F51B5', '7': '#2196F3', '9': '#FF6B6B', '12': '#4ECDC4',
   '14': '#009688', '16': '#4CAF50', '17': '#8BC34A', '18': '#CDDC39',
@@ -56,13 +58,52 @@ const ROUTE_COLORS: { [key: string]: string } = {
   '82': '#FFEB3B', '84': '#FF9800', '93': '#FF5722', '94': '#795548',
   '96': '#607D8B', '97': '#F44336', '98': '#E91E63', '99': '#9C27B0',
   'K': '#FF6B35',
+  
+  // Trolley routes (distinctive colors)
+  'T1': '#00BCD4', 'T2': '#FF9800', 'T3': '#4CAF50', 'T4': '#9C27B0', 'T5': '#F44336',
+  'T101': '#795548', 'T102': '#607D8B',
+  
+  // Regional Rail lines (various shades of gray)
+  'RRAirport Line': '#808080',
+  'RRChestnut Hill East': '#696969',
+  'RRChestnut Hill West': '#555555',
+  'RRCynwyd': '#A9A9A9',
+  'RRFox Chase': '#778899',
+  'RRLansdale/Doylestown': '#708090',
+  'RRMedia/Wawa': '#2F4F4F',
+  'RRNorristown': '#696969',
+  'RRPaoli/Thorndale': '#808080',
+  'RRTrenton': '#6B6B6B',
+  'RRWarminster': '#4F4F4F',
+  'RRWest Trenton': '#5A5A5A',
+  'RRWilmington/Newark': '#737373'
 };
 
 // Generate a color for routes not in the predefined list
 const generateRouteColor = (route: string): string => {
   if (ROUTE_COLORS[route]) return ROUTE_COLORS[route];
   
-  // Generate a consistent color based on the route string
+  // Regional Rail routes (RR prefix) - various shades of gray
+  if (route.startsWith('RR')) {
+    const grayShades = ['#808080', '#696969', '#555555', '#A9A9A9', '#778899', '#708090', '#2F4F4F'];
+    let hash = 0;
+    for (let i = 0; i < route.length; i++) {
+      hash = route.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return grayShades[Math.abs(hash) % grayShades.length];
+  }
+  
+  // Trolley routes (T prefix) - distinctive colors
+  if (route.startsWith('T')) {
+    const trolleyColors = ['#00BCD4', '#FF9800', '#4CAF50', '#9C27B0', '#F44336', '#795548', '#607D8B'];
+    let hash = 0;
+    for (let i = 0; i < route.length; i++) {
+      hash = route.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return trolleyColors[Math.abs(hash) % trolleyColors.length];
+  }
+  
+  // Bus routes - generate colorful hues
   let hash = 0;
   for (let i = 0; i < route.length; i++) {
     hash = route.charCodeAt(i) + ((hash << 5) - hash);
@@ -75,13 +116,35 @@ const generateRouteColor = (route: string): string => {
 const createRouteIcon = (route: string) => {
   const color = generateRouteColor(route);
   
+  // Determine display text and marker shape based on route type
+  let displayText = route.startsWith('RR') ? route.replace('RR', '') : route;
+  const isRegionalRail = route.startsWith('RR');
+  
+  if (isRegionalRail && displayText.length > 12) {
+    displayText = displayText.substring(0, 10) + '...';
+  }
+  
+  // Calculate width for Regional Rail rectangles based on text length
+  let width = 24;
+  let height = 24;
+  let iconSize: [number, number] = [24, 24];
+  let iconAnchor: [number, number] = [12, 12];
+  
+  if (isRegionalRail) {
+    // Estimate width based on character count (roughly 7px per character + padding)
+    width = Math.max(60, displayText.length * 7 + 16);
+    height = 20;
+    iconSize = [width, height];
+    iconAnchor = [width / 2, height / 2];
+  }
+  
   return L.divIcon({
     html: `
       <div class="route-marker" style="
         background-color: ${color};
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
+        width: ${width}px;
+        height: ${height}px;
+        border-radius: ${isRegionalRail ? '10px' : '50%'};
         border: 2px solid rgba(255,255,255,0.8);
         box-shadow: 0 2px 6px rgba(0,0,0,0.4);
         opacity: 0.85;
@@ -89,17 +152,19 @@ const createRouteIcon = (route: string) => {
         align-items: center;
         justify-content: center;
         font-family: Arial, sans-serif;
-        font-size: 11px;
+        font-size: ${isRegionalRail ? '9px' : '11px'};
         font-weight: bold;
         color: white;
         text-align: center;
         line-height: 1;
-      ">${route}</div>
+        white-space: nowrap;
+        text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+      ">${displayText}</div>
     `,
     className: '',
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
+    iconSize: iconSize,
+    iconAnchor: iconAnchor,
+    popupAnchor: [0, isRegionalRail ? -10 : -12],
   });
 };
 
@@ -206,22 +271,47 @@ export default function Map() {
     
     try {
       console.log('Fetching route geometry for routes:', selectedRoutes.join(','));
-      const response = await fetch(`/api/routes?routes=${selectedRoutes.join(',')}`);
       
-      if (!response.ok) {
-        console.warn('Failed to fetch route geometry data', response.status);
-        return;
+      // Separate routes by type
+      const busAndTrolleyRoutes = selectedRoutes.filter(route => !route.startsWith('RR'));
+      const railRoutes = selectedRoutes.filter(route => route.startsWith('RR'));
+      
+      const allFeatures: RouteFeature[] = [];
+      
+      // Fetch bus and trolley geometry
+      if (busAndTrolleyRoutes.length > 0) {
+        try {
+          const busResponse = await fetch(`/api/routes?routes=${busAndTrolleyRoutes.join(',')}`);
+          if (busResponse.ok) {
+            const busData = await busResponse.json();
+            if (busData.features && Array.isArray(busData.features)) {
+              console.log('Bus/trolley features found:', busData.features.length);
+              allFeatures.push(...busData.features);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching bus/trolley geometry:', error);
+        }
       }
       
-      const data = await response.json();
-      console.log('Route geometry data received:', data);
-      
-      if (data.features && Array.isArray(data.features)) {
-        console.log('Setting route geometry, features count:', data.features.length);
-        setRouteGeometry(data.features);
-      } else {
-        console.warn('No features found in route geometry data');
+      // Fetch Regional Rail geometry
+      if (railRoutes.length > 0) {
+        try {
+          const railResponse = await fetch(`/api/rail-geometry?routes=${railRoutes.join(',')}`);
+          if (railResponse.ok) {
+            const railData = await railResponse.json();
+            if (railData.features && Array.isArray(railData.features)) {
+              console.log('Rail features found:', railData.features.length);
+              allFeatures.push(...railData.features);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching rail geometry:', error);
+        }
       }
+      
+      console.log('Combined route geometry data received, total features:', allFeatures.length);
+      setRouteGeometry(allFeatures);
     } catch (error) {
       console.error('Error fetching route geometry:', error);
     }
@@ -237,10 +327,22 @@ export default function Map() {
     try {
       const allVehicles: Vehicle[] = [];
       
-      // Fetch data for each route using our API proxy
+      // Fetch data for each route using appropriate API based on route type
       for (const route of selectedRoutes) {
         try {
-          const response = await fetch(`/api/septa?route=${route}`);
+          let response;
+          
+          // Determine API endpoint based on route prefix
+          if (route.startsWith('RR')) {
+            // Regional Rail - use rail API
+            response = await fetch(`/api/rail?route=${route}`);
+          } else if (route.startsWith('T')) {
+            // Trolley - use existing septa API (TransitView supports trolleys)
+            response = await fetch(`/api/septa?route=${route.substring(1)}`); // Remove T prefix for API call
+          } else {
+            // Bus - use existing septa API
+            response = await fetch(`/api/septa?route=${route}`);
+          }
           
           if (!response.ok) {
             console.warn(`Failed to fetch data for route ${route}: ${response.status}`);
@@ -378,7 +480,11 @@ export default function Map() {
                   marginBottom: '8px', 
                   color: generateRouteColor(vehicle.label)
                 }}>
-                  Route {vehicle.label}
+                  {vehicle.label.startsWith('RR') 
+                    ? `Rail ${vehicle.label.replace('RR', '')}`
+                    : vehicle.label.startsWith('T') 
+                    ? `Trolley ${vehicle.label}`
+                    : `Route ${vehicle.label}`}
                 </h3>
                 <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
                   <p style={{ marginBottom: '4px' }}>
@@ -490,7 +596,13 @@ export default function Map() {
                         className="w-3 h-3 rounded-full" 
                         style={{backgroundColor: generateRouteColor(route)}}
                       ></div>
-                      <span className="text-gray-900 dark:text-white">Route {route}</span>
+                      <span className="text-gray-900 dark:text-white">
+                        {route.startsWith('RR') 
+                          ? `Rail ${route.replace('RR', '')}`
+                          : route.startsWith('T') 
+                          ? `Trolley ${route}`
+                          : `Route ${route}`}
+                      </span>
                       <span className="italic text-right text-gray-600 dark:text-gray-300">({count})</span>
                       <button
                         onClick={() => removeRoute(route)}
