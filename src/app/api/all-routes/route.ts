@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { REGIONAL_RAIL_LINES } from '../../../constants/routes';
 
 export async function GET() {
   try {
@@ -28,19 +29,19 @@ export async function GET() {
 
     // Add Regional Rail lines (major lines)
     const regionalRailLines = [
-      { number: 'Airport Line', name: 'Airport Line', type: 'rail' },
-      { number: 'Chestnut Hill East', name: 'Chestnut Hill East', type: 'rail' },
-      { number: 'Chestnut Hill West', name: 'Chestnut Hill West', type: 'rail' },
-      { number: 'Cynwyd', name: 'Cynwyd Line', type: 'rail' },
-      { number: 'Fox Chase', name: 'Fox Chase Line', type: 'rail' },
-      { number: 'Lansdale/Doylestown', name: 'Lansdale/Doylestown Line', type: 'rail' },
-      { number: 'Media/Wawa', name: 'Media/Wawa Line', type: 'rail' },
-      { number: 'Norristown', name: 'Norristown Line', type: 'rail' },
-      { number: 'Paoli/Thorndale', name: 'Paoli/Thorndale Line', type: 'rail' },
-      { number: 'Trenton', name: 'Trenton Line', type: 'rail' },
-      { number: 'Warminster', name: 'Warminster Line', type: 'rail' },
-      { number: 'West Trenton', name: 'West Trenton Line', type: 'rail' },
-      { number: 'Wilmington/Newark', name: 'Wilmington/Newark Line', type: 'rail' }
+      { number: REGIONAL_RAIL_LINES.AIRPORT_LINE, name: REGIONAL_RAIL_LINES.AIRPORT_LINE, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.CHESTNUT_HILL_EAST, name: REGIONAL_RAIL_LINES.CHESTNUT_HILL_EAST, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.CHESTNUT_HILL_WEST, name: REGIONAL_RAIL_LINES.CHESTNUT_HILL_WEST, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.CYNWYD, name: `${REGIONAL_RAIL_LINES.CYNWYD} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.FOX_CHASE, name: `${REGIONAL_RAIL_LINES.FOX_CHASE} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.LANSDALE_DOYLESTOWN, name: `${REGIONAL_RAIL_LINES.LANSDALE_DOYLESTOWN} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.MEDIA_WAWA, name: `${REGIONAL_RAIL_LINES.MEDIA_WAWA} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.NORRISTOWN, name: `${REGIONAL_RAIL_LINES.NORRISTOWN} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.PAOLI_THORNDALE, name: `${REGIONAL_RAIL_LINES.PAOLI_THORNDALE} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.TRENTON, name: `${REGIONAL_RAIL_LINES.TRENTON} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.WARMINSTER, name: `${REGIONAL_RAIL_LINES.WARMINSTER} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.WEST_TRENTON, name: `${REGIONAL_RAIL_LINES.WEST_TRENTON} Line`, type: 'rail' },
+      { number: REGIONAL_RAIL_LINES.WILMINGTON_NEWARK, name: `${REGIONAL_RAIL_LINES.WILMINGTON_NEWARK} Line`, type: 'rail' }
     ];
 
     allRoutes.push(...regionalRailLines);

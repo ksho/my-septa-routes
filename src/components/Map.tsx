@@ -6,12 +6,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { REGIONAL_RAIL_LINES, isRegionalRailRoute, DEFAULT_REGIONAL_RAIL_LINE } from '../constants/routes';
 
 // Center City Philadelphia coordinates
 const PHILADELPHIA_CENTER = [39.9526, -75.1652] as [number, number];
 
 // Default SEPTA routes (used when no routes in URL)
-const DEFAULT_ROUTES = ['57', '47', '42', '9', '12', '21', '29', 'Norristown'];
+const DEFAULT_ROUTES = ['57', '47', '42', '9', '12', '21', '29', DEFAULT_REGIONAL_RAIL_LINE];
 
 interface Vehicle {
   lat: number;
@@ -64,30 +65,23 @@ const ROUTE_COLORS: { [key: string]: string } = {
   'T101': '#795548', 'T102': '#607D8B',
   
   // Regional Rail lines (various shades of gray)
-  'Airport Line': '#909090',
-  'Chestnut Hill East': '#696969',
-  'Chestnut Hill West': '#555555',
-  'Cynwyd': '#A9A9A9',
-  'Fox Chase': '#778899',
-  'Lansdale/Doylestown': '#708090',
-  'Media/Wawa': '#2F4F4F',
-  'Norristown': '#7A7A7A',
-  'Paoli/Thorndale': '#808080',
-  'Trenton': '#6B6B6B',
-  'Warminster': '#4F4F4F',
-  'West Trenton': '#5A5A5A',
-  'Wilmington/Newark': '#737373'
+  [REGIONAL_RAIL_LINES.AIRPORT_LINE]: '#909090',
+  [REGIONAL_RAIL_LINES.CHESTNUT_HILL_EAST]: '#696969',
+  [REGIONAL_RAIL_LINES.CHESTNUT_HILL_WEST]: '#555555',
+  [REGIONAL_RAIL_LINES.CYNWYD]: '#A9A9A9',
+  [REGIONAL_RAIL_LINES.FOX_CHASE]: '#778899',
+  [REGIONAL_RAIL_LINES.LANSDALE_DOYLESTOWN]: '#708090',
+  [REGIONAL_RAIL_LINES.MEDIA_WAWA]: '#2F4F4F',
+  [REGIONAL_RAIL_LINES.NORRISTOWN]: '#7A7A7A',
+  [REGIONAL_RAIL_LINES.PAOLI_THORNDALE]: '#808080',
+  [REGIONAL_RAIL_LINES.TRENTON]: '#6B6B6B',
+  [REGIONAL_RAIL_LINES.WARMINSTER]: '#4F4F4F',
+  [REGIONAL_RAIL_LINES.WEST_TRENTON]: '#5A5A5A',
+  [REGIONAL_RAIL_LINES.WILMINGTON_NEWARK]: '#737373'
 };
 
-// Helper function to determine if a route is Regional Rail
-const isRegionalRail = (route: string): boolean => {
-  const railRoutes = [
-    'Airport Line', 'Chestnut Hill East', 'Chestnut Hill West', 'Cynwyd', 
-    'Fox Chase', 'Lansdale/Doylestown', 'Media/Wawa', 'Norristown', 
-    'Paoli/Thorndale', 'Trenton', 'Warminster', 'West Trenton', 'Wilmington/Newark'
-  ];
-  return railRoutes.includes(route);
-};
+// Use the imported helper function for Regional Rail detection
+const isRegionalRail = isRegionalRailRoute;
 
 // Generate a color for routes not in the predefined list
 const generateRouteColor = (route: string): string => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SEPTA_LINE_NAME_MAPPING, SEPTA_TO_OUR_LINE_NAME_MAPPING } from '../../../constants/routes';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
     // Use SEPTA's actual Regional Rail geometry service
     const lineQueries = railLines.map(line => {
       // Map line names to match SEPTA's naming convention
-      const mappedLineName = mapToSeptaLineName(line);
+      const mappedLineName = SEPTA_LINE_NAME_MAPPING[line] || line;
       return `Route_Name='${mappedLineName}'`;
     });
     
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       geometry: { type: string; coordinates: number[][] };
     }) => {
       // Map SEPTA's route names back to our expected format
-      const ourRouteName = mapFromSeptaLineName(feature.properties.Route_Name);
+      const ourRouteName = SEPTA_TO_OUR_LINE_NAME_MAPPING[feature.properties.Route_Name] || feature.properties.Route_Name;
       return {
         type: 'Feature',
         properties: {
@@ -71,46 +72,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// Map our route names to SEPTA's official naming convention
-function mapToSeptaLineName(lineName: string): string {
-  const lineMapping: { [key: string]: string } = {
-    'Airport Line': 'Airport',
-    'Chestnut Hill East': 'Chestnut Hill East',
-    'Chestnut Hill West': 'Chestnut Hill West', 
-    'Cynwyd': 'Cynwyd',
-    'Fox Chase': 'Fox Chase',
-    'Lansdale/Doylestown': 'Lansdale/Doylestown',
-    'Media/Wawa': 'Media/Wawa',
-    'Norristown': 'Manayunk/Norristown',
-    'Paoli/Thorndale': 'Paoli/Thorndale',
-    'Trenton': 'Trenton',
-    'Warminster': 'Warminster',
-    'West Trenton': 'West Trenton',
-    'Wilmington/Newark': 'Wilmington/Newark'
-  };
-  
-  return lineMapping[lineName] || lineName;
-}
-
-// Map SEPTA's route names back to our expected format
-function mapFromSeptaLineName(septaName: string): string {
-  const reverseMapping: { [key: string]: string } = {
-    'Airport': 'Airport Line',
-    'Chestnut Hill East': 'Chestnut Hill East',
-    'Chestnut Hill West': 'Chestnut Hill West',
-    'Cynwyd': 'Cynwyd',
-    'Fox Chase': 'Fox Chase',
-    'Lansdale/Doylestown': 'Lansdale/Doylestown',
-    'Media/Wawa': 'Media/Wawa',
-    'Manayunk/Norristown': 'Norristown',
-    'Paoli/Thorndale': 'Paoli/Thorndale',
-    'Trenton': 'Trenton',
-    'Warminster': 'Warminster',
-    'West Trenton': 'West Trenton',
-    'Wilmington/Newark': 'Wilmington/Newark'
-  };
-  
-  return reverseMapping[septaName] || septaName;
 }
