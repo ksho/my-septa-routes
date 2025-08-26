@@ -11,7 +11,7 @@ import 'leaflet/dist/leaflet.css';
 const PHILADELPHIA_CENTER = [39.9526, -75.1652] as [number, number];
 
 // Default SEPTA routes (used when no routes in URL)
-const DEFAULT_ROUTES = ['57', '47', '42', '9', '12', '21', '29', 'RRNorristown'];
+const DEFAULT_ROUTES = ['57', '47', '42', '9', '12', '21', '29', 'Norristown'];
 
 interface Vehicle {
   lat: number;
@@ -64,27 +64,37 @@ const ROUTE_COLORS: { [key: string]: string } = {
   'T101': '#795548', 'T102': '#607D8B',
   
   // Regional Rail lines (various shades of gray)
-  'RRAirport Line': '#808080',
-  'RRChestnut Hill East': '#696969',
-  'RRChestnut Hill West': '#555555',
-  'RRCynwyd': '#A9A9A9',
-  'RRFox Chase': '#778899',
-  'RRLansdale/Doylestown': '#708090',
-  'RRMedia/Wawa': '#2F4F4F',
-  'RRNorristown': '#696969',
-  'RRPaoli/Thorndale': '#808080',
-  'RRTrenton': '#6B6B6B',
-  'RRWarminster': '#4F4F4F',
-  'RRWest Trenton': '#5A5A5A',
-  'RRWilmington/Newark': '#737373'
+  'Airport Line': '#808080',
+  'Chestnut Hill East': '#696969',
+  'Chestnut Hill West': '#555555',
+  'Cynwyd': '#A9A9A9',
+  'Fox Chase': '#778899',
+  'Lansdale/Doylestown': '#708090',
+  'Media/Wawa': '#2F4F4F',
+  'Norristown': '#696969',
+  'Paoli/Thorndale': '#808080',
+  'Trenton': '#6B6B6B',
+  'Warminster': '#4F4F4F',
+  'West Trenton': '#5A5A5A',
+  'Wilmington/Newark': '#737373'
+};
+
+// Helper function to determine if a route is Regional Rail
+const isRegionalRail = (route: string): boolean => {
+  const railRoutes = [
+    'Airport Line', 'Chestnut Hill East', 'Chestnut Hill West', 'Cynwyd', 
+    'Fox Chase', 'Lansdale/Doylestown', 'Media/Wawa', 'Norristown', 
+    'Paoli/Thorndale', 'Trenton', 'Warminster', 'West Trenton', 'Wilmington/Newark'
+  ];
+  return railRoutes.includes(route);
 };
 
 // Generate a color for routes not in the predefined list
 const generateRouteColor = (route: string): string => {
   if (ROUTE_COLORS[route]) return ROUTE_COLORS[route];
   
-  // Regional Rail routes (RR prefix) - various shades of gray
-  if (route.startsWith('RR')) {
+  // Regional Rail routes - various shades of gray
+  if (isRegionalRail(route)) {
     const grayShades = ['#808080', '#696969', '#555555', '#A9A9A9', '#778899', '#708090', '#2F4F4F'];
     let hash = 0;
     for (let i = 0; i < route.length; i++) {
@@ -116,11 +126,11 @@ const generateRouteColor = (route: string): string => {
 const createRouteIcon = (route: string) => {
   const color = generateRouteColor(route);
   
-  // Determine display text and marker shape based on route type
-  let displayText = route.startsWith('RR') ? route.replace('RR', '') : route;
-  const isRegionalRail = route.startsWith('RR');
+  // Determine display text and marker shape based on route type  
+  let displayText = route;
+  const isRail = isRegionalRail(route);
   
-  if (isRegionalRail && displayText.length > 12) {
+  if (isRail && displayText.length > 12) {
     displayText = displayText.substring(0, 10) + '...';
   }
   
@@ -130,7 +140,7 @@ const createRouteIcon = (route: string) => {
   let iconSize: [number, number] = [24, 24];
   let iconAnchor: [number, number] = [12, 12];
   
-  if (isRegionalRail) {
+  if (isRail) {
     // Estimate width based on character count (roughly 7px per character + padding)
     width = Math.max(60, displayText.length * 7 + 16);
     height = 20;
@@ -144,7 +154,7 @@ const createRouteIcon = (route: string) => {
         background-color: ${color};
         width: ${width}px;
         height: ${height}px;
-        border-radius: ${isRegionalRail ? '10px' : '50%'};
+        border-radius: ${isRail ? '10px' : '50%'};
         border: 2px solid rgba(255,255,255,0.8);
         box-shadow: 0 2px 6px rgba(0,0,0,0.4);
         opacity: 0.85;
@@ -152,7 +162,7 @@ const createRouteIcon = (route: string) => {
         align-items: center;
         justify-content: center;
         font-family: Arial, sans-serif;
-        font-size: ${isRegionalRail ? '9px' : '11px'};
+        font-size: ${isRail ? '9px' : '11px'};
         font-weight: bold;
         color: white;
         text-align: center;
@@ -164,7 +174,7 @@ const createRouteIcon = (route: string) => {
     className: '',
     iconSize: iconSize,
     iconAnchor: iconAnchor,
-    popupAnchor: [0, isRegionalRail ? -10 : -12],
+    popupAnchor: [0, isRail ? -10 : -12],
   });
 };
 
@@ -273,8 +283,8 @@ export default function Map() {
       console.log('Fetching route geometry for routes:', selectedRoutes.join(','));
       
       // Separate routes by type
-      const busAndTrolleyRoutes = selectedRoutes.filter(route => !route.startsWith('RR'));
-      const railRoutes = selectedRoutes.filter(route => route.startsWith('RR'));
+      const busAndTrolleyRoutes = selectedRoutes.filter(route => !isRegionalRail(route));
+      const railRoutes = selectedRoutes.filter(route => isRegionalRail(route));
       
       const allFeatures: RouteFeature[] = [];
       
@@ -332,8 +342,8 @@ export default function Map() {
         try {
           let response;
           
-          // Determine API endpoint based on route prefix
-          if (route.startsWith('RR')) {
+          // Determine API endpoint based on route type
+          if (isRegionalRail(route)) {
             // Regional Rail - use rail API
             response = await fetch(`/api/rail?route=${route}`);
           } else if (route.startsWith('T')) {
@@ -480,8 +490,8 @@ export default function Map() {
                   marginBottom: '8px', 
                   color: generateRouteColor(vehicle.label)
                 }}>
-                  {vehicle.label.startsWith('RR') 
-                    ? `Rail ${vehicle.label.replace('RR', '')}`
+                  {isRegionalRail(vehicle.label)
+                    ? `Rail ${vehicle.label}`
                     : vehicle.label.startsWith('T') 
                     ? `Trolley ${vehicle.label}`
                     : `Route ${vehicle.label}`}
@@ -597,8 +607,8 @@ export default function Map() {
                         style={{backgroundColor: generateRouteColor(route)}}
                       ></div>
                       <span className="text-gray-900 dark:text-white">
-                        {route.startsWith('RR') 
-                          ? `Rail ${route.replace('RR', '')}`
+                        {isRegionalRail(route)
+                          ? `Rail ${route}`
                           : route.startsWith('T') 
                           ? `Trolley ${route}`
                           : `Route ${route}`}

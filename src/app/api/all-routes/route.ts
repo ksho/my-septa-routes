@@ -28,19 +28,19 @@ export async function GET() {
 
     // Add Regional Rail lines (major lines)
     const regionalRailLines = [
-      { number: 'RRAirport Line', name: 'Airport Line', type: 'rail' },
-      { number: 'RRChestnut Hill East', name: 'Chestnut Hill East', type: 'rail' },
-      { number: 'RRChestnut Hill West', name: 'Chestnut Hill West', type: 'rail' },
-      { number: 'RRCynwyd', name: 'Cynwyd Line', type: 'rail' },
-      { number: 'RRFox Chase', name: 'Fox Chase Line', type: 'rail' },
-      { number: 'RRLansdale/Doylestown', name: 'Lansdale/Doylestown Line', type: 'rail' },
-      { number: 'RRMedia/Wawa', name: 'Media/Wawa Line', type: 'rail' },
-      { number: 'RRNorristown', name: 'Norristown Line', type: 'rail' },
-      { number: 'RRPaoli/Thorndale', name: 'Paoli/Thorndale Line', type: 'rail' },
-      { number: 'RRTrenton', name: 'Trenton Line', type: 'rail' },
-      { number: 'RRWarminster', name: 'Warminster Line', type: 'rail' },
-      { number: 'RRWest Trenton', name: 'West Trenton Line', type: 'rail' },
-      { number: 'RRWilmington/Newark', name: 'Wilmington/Newark Line', type: 'rail' }
+      { number: 'Airport Line', name: 'Airport Line', type: 'rail' },
+      { number: 'Chestnut Hill East', name: 'Chestnut Hill East', type: 'rail' },
+      { number: 'Chestnut Hill West', name: 'Chestnut Hill West', type: 'rail' },
+      { number: 'Cynwyd', name: 'Cynwyd Line', type: 'rail' },
+      { number: 'Fox Chase', name: 'Fox Chase Line', type: 'rail' },
+      { number: 'Lansdale/Doylestown', name: 'Lansdale/Doylestown Line', type: 'rail' },
+      { number: 'Media/Wawa', name: 'Media/Wawa Line', type: 'rail' },
+      { number: 'Norristown', name: 'Norristown Line', type: 'rail' },
+      { number: 'Paoli/Thorndale', name: 'Paoli/Thorndale Line', type: 'rail' },
+      { number: 'Trenton', name: 'Trenton Line', type: 'rail' },
+      { number: 'Warminster', name: 'Warminster Line', type: 'rail' },
+      { number: 'West Trenton', name: 'West Trenton Line', type: 'rail' },
+      { number: 'Wilmington/Newark', name: 'Wilmington/Newark Line', type: 'rail' }
     ];
 
     allRoutes.push(...regionalRailLines);

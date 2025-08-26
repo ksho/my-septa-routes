@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Routes parameter is required' }, { status: 400 });
   }
 
-  const railLines = routes.split(',').map(r => r.trim().replace('RR', ''));
+  const railLines = routes.split(',').map(r => r.trim());
 
   try {
     // Use SEPTA's actual Regional Rail geometry service
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     }) => ({
       type: 'Feature',
       properties: {
-        LineAbbr: `RR${feature.properties.Route_Name}`,
+        LineAbbr: feature.properties.Route_Name,
         LineName: feature.properties.Route_Name,
         Miles: feature.properties.Miles
       },

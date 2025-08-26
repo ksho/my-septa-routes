@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     // Filter for specific line if route is provided
     const trains = data.filter((train: { line?: string }) => {
       // Match by line name (e.g., "Airport Line", "Chestnut Hill East", etc.)
-      return train.line && train.line.toLowerCase().includes(route.replace('RR', '').trim().toLowerCase());
+      return train.line && train.line.toLowerCase().includes(route.trim().toLowerCase());
     }).map((train: { 
       lat?: string; 
       lon?: string; 
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     }) => ({
       lat: parseFloat(train.lat || '0') || 0,
       lng: parseFloat(train.lon || '0') || 0,
-      label: `RR${train.line}`, // Prefix with RR
+      label: train.line || 'Unknown',
       VehicleID: train.trainno || train.consist || 'Unknown',
       Direction: train.direction || train.heading || 'Unknown',
       destination: train.dest || train.nextstop || 'Unknown',
