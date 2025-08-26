@@ -64,14 +64,14 @@ const ROUTE_COLORS: { [key: string]: string } = {
   'T101': '#795548', 'T102': '#607D8B',
   
   // Regional Rail lines (various shades of gray)
-  'Airport Line': '#808080',
+  'Airport Line': '#909090',
   'Chestnut Hill East': '#696969',
   'Chestnut Hill West': '#555555',
   'Cynwyd': '#A9A9A9',
   'Fox Chase': '#778899',
   'Lansdale/Doylestown': '#708090',
   'Media/Wawa': '#2F4F4F',
-  'Norristown': '#696969',
+  'Norristown': '#7A7A7A',
   'Paoli/Thorndale': '#808080',
   'Trenton': '#6B6B6B',
   'Warminster': '#4F4F4F',
