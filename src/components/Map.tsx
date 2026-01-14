@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl } from 'react-leaflet';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl, CircleMarker, useMap } from 'react-leaflet';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { REGIONAL_RAIL_LINES, isRegionalRailRoute, DEFAULT_REGIONAL_RAIL_LINE } from '../constants/routes';
+import { LocationControl } from './LocationControl';
 
 // Center City Philadelphia coordinates
 const PHILADELPHIA_CENTER = [39.9526, -75.1652] as [number, number];
@@ -201,14 +202,46 @@ export default function Map() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
+
+  // Location sharing state
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [watchId, setWatchId] = useState<number | null>(null);
+  const hasInitialZoomRef = useRef(false);
+
   // Determine if we should use dark theme
   const isDark = mounted ? (theme === 'dark' || (theme === 'system' && systemTheme === 'dark')) : false;
-  
+
+  // Check if location tracking was enabled in previous session
+  const getInitialZoom = () => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('locationSharingEnabled');
+      return saved === 'true' ? 15 : 13;
+    }
+    return 13;
+  };
+
   useEffect(() => {
     setMounted(true);
   }, []);
-  
+
+  // Load location sharing preference from localStorage
+  useEffect(() => {
+    if (!mounted) return;
+    const saved = localStorage.getItem('locationSharingEnabled');
+    if (saved === 'true') {
+      setLocationEnabled(true);
+    }
+  }, [mounted]);
+
+  // Handle location sharing toggle
+  const handleLocationToggle = useCallback(() => {
+    const newValue = !locationEnabled;
+    setLocationEnabled(newValue);
+    localStorage.setItem('locationSharingEnabled', String(newValue));
+  }, [locationEnabled]);
+
   // Get routes from URL or use defaults
   const getRoutesFromURL = useCallback(() => {
     const routesParam = searchParams.get('routes');
@@ -411,17 +444,119 @@ export default function Map() {
   // Set up vehicle data polling
   useEffect(() => {
     if (selectedRoutes.length === 0) return;
-    
+
     const interval = setInterval(fetchVehicleData, 5000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoutes]);
 
+  // Handle geolocation tracking
+  useEffect(() => {
+    if (!locationEnabled) {
+      // Stop watching position
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        setWatchId(null);
+      }
+      setUserLocation(null);
+      setLocationError(null);
+      hasInitialZoomRef.current = false;
+      return;
+    }
+
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser');
+      setLocationEnabled(false);
+      return;
+    }
+
+    const successCallback = (position: GeolocationPosition) => {
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      });
+      setLocationError(null);
+    };
+
+    const errorCallback = (error: GeolocationPositionError) => {
+      console.error('Geolocation error:', error);
+      let errorMessage = 'Unable to retrieve your location';
+
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = 'Location information unavailable';
+          break;
+        case error.TIMEOUT:
+          errorMessage = 'Location request timed out';
+          break;
+      }
+
+      setLocationError(errorMessage);
+      setLocationEnabled(false);
+      setUserLocation(null);
+    };
+
+    // Start watching position
+    const id = navigator.geolocation.watchPosition(
+      successCallback,
+      errorCallback,
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000, // 10 seconds
+        timeout: 5000 // 5 seconds
+      }
+    );
+
+    setWatchId(id);
+
+    // Cleanup
+    return () => {
+      navigator.geolocation.clearWatch(id);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationEnabled]); // watchId intentionally excluded to prevent infinite loop
+
+  // Inner component to control map viewport
+  function MapController({ userLocation, enabled, hasInitialZoomRef }: {
+    userLocation: { lat: number; lng: number } | null;
+    enabled: boolean;
+    hasInitialZoomRef: React.MutableRefObject<boolean>;
+  }) {
+    const map = useMap();
+
+    useEffect(() => {
+      if (enabled && userLocation) {
+        if (!hasInitialZoomRef.current) {
+          // First time: zoom in to user location (same as initial load zoom)
+          console.log('Initial zoom to:', userLocation);
+          map.flyTo([userLocation.lat, userLocation.lng], 15, {
+            duration: 1.5,
+            easeLinearity: 0.25
+          });
+          hasInitialZoomRef.current = true;
+        } else {
+          // Subsequent updates: only pan, don't change zoom
+          console.log('Panning to:', userLocation);
+          map.panTo([userLocation.lat, userLocation.lng], {
+            animate: true,
+            duration: 1.0
+          });
+        }
+      }
+    }, [userLocation, enabled, map, hasInitialZoomRef]);
+
+    return null;
+  }
+
   return (
     <div className="w-full h-screen">
       <MapContainer
         center={PHILADELPHIA_CENTER}
-        zoom={13}
+        zoom={getInitialZoom()}
         className="w-full h-full"
         zoomControl={false}
       >
@@ -514,6 +649,44 @@ export default function Map() {
             </Popup>
           </Marker>
         ))}
+
+        {/* Map controller for viewport management */}
+        <MapController
+          userLocation={userLocation}
+          enabled={locationEnabled}
+          hasInitialZoomRef={hasInitialZoomRef}
+        />
+
+        {/* User location marker */}
+        {userLocation && locationEnabled && (
+          <CircleMarker
+            center={[userLocation.lat, userLocation.lng]}
+            radius={8}
+            pathOptions={{
+              color: '#FFFFFF',
+              fillColor: '#4285F4',
+              fillOpacity: 0.85,
+              weight: 3,
+            }}
+            eventHandlers={{
+              add: (e) => {
+                const path = e.target.getElement();
+                if (path) {
+                  path.classList.add('user-location-marker', 'user-location-ring');
+                }
+              }
+            }}
+          >
+            <Popup>
+              <div style={{ padding: '8px' }}>
+                <h3 style={{ fontWeight: 'bold', marginBottom: '4px' }}>Your Location</h3>
+                <p style={{ fontSize: '12px', margin: 0 }}>
+                  {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+                </p>
+              </div>
+            </Popup>
+          </CircleMarker>
+        )}
       </MapContainer>
       
       {loading && (
@@ -524,7 +697,26 @@ export default function Map() {
           </div>
         </div>
       )}
-      
+
+      {/* Location error banner */}
+      {locationError && (
+        <div className="absolute top-20 right-4 bg-red-500/90 dark:bg-red-600/90 backdrop-blur-sm p-3 rounded-lg shadow-lg z-[1000] max-w-xs">
+          <div className="flex items-start space-x-2">
+            <span className="text-white text-xl">⚠️</span>
+            <div className="flex-1">
+              <p className="text-white text-sm font-medium">{locationError}</p>
+            </div>
+            <button
+              onClick={() => setLocationError(null)}
+              className="text-white hover:text-gray-200 font-bold text-lg leading-none"
+              aria-label="Dismiss error"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="absolute bottom-4 left-4 bg-white/65 dark:bg-gray-800/65 backdrop-blur-sm rounded-lg shadow-lg z-[1000] w-64 transition-all duration-300 ease-in-out">
         <div className="flex items-center justify-between p-3 pb-2">
           <h3 className="font-bold text-sm text-gray-900 dark:text-white">Routes ({selectedRoutes.length}/10)</h3>
@@ -626,6 +818,15 @@ export default function Map() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Location sharing control */}
+      <div className="absolute top-16 right-4 z-[1000]">
+        <LocationControl
+          enabled={locationEnabled}
+          onToggle={handleLocationToggle}
+          hasError={!!locationError}
+        />
       </div>
     </div>
   );
