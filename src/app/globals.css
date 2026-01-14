@@ -142,3 +142,32 @@ html {
   background: transparent !important;
   border: none !important;
 }
+
+/* User location marker breathing animation */
+@keyframes pulse-ring {
+  0% {
+    stroke-opacity: 1;
+    stroke-width: 4;
+  }
+  100% {
+    stroke-opacity: 0;
+    stroke-width: 18;
+  }
+}
+
+@keyframes fade-pulse {
+  0%, 100% {
+    fill-opacity: 0.75;
+  }
+  50% {
+    fill-opacity: 1;
+  }
+}
+
+.user-location-marker {
+  animation: fade-pulse 1.8s ease-in-out infinite;
+}
+
+.user-location-ring {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
