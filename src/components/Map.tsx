@@ -531,9 +531,9 @@ export default function Map() {
     useEffect(() => {
       if (enabled && userLocation) {
         if (!hasInitialZoomRef.current) {
-          // First time: zoom in to user location
+          // First time: zoom in to user location (same as initial load zoom)
           console.log('Initial zoom to:', userLocation);
-          map.flyTo([userLocation.lat, userLocation.lng], 16, {
+          map.flyTo([userLocation.lat, userLocation.lng], 15, {
             duration: 1.5,
             easeLinearity: 0.25
           });
