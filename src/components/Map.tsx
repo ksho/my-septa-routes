@@ -667,7 +667,14 @@ export default function Map() {
               fillColor: '#4285F4',
               fillOpacity: 0.85,
               weight: 3,
-              className: 'user-location-marker user-location-ring',
+            }}
+            eventHandlers={{
+              add: (e) => {
+                const path = e.target.getElement();
+                if (path) {
+                  path.classList.add('user-location-marker', 'user-location-ring');
+                }
+              }
             }}
           >
             <Popup>

@@ -164,10 +164,13 @@ html {
   }
 }
 
-.user-location-marker {
-  animation: fade-pulse 1.8s ease-in-out infinite;
+/* Target SVG path elements directly for Leaflet compatibility */
+.user-location-marker,
+path.user-location-marker {
+  animation: fade-pulse 1.8s ease-in-out infinite !important;
 }
 
-.user-location-ring {
-  animation: pulse-ring 1.8s ease-out infinite;
+.user-location-ring,
+path.user-location-ring {
+  animation: pulse-ring 1.8s ease-out infinite !important;
 }
