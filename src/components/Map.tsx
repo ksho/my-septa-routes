@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { REGIONAL_RAIL_LINES, isRegionalRailRoute, DEFAULT_REGIONAL_RAIL_LINE } from '../constants/routes';
+import { LocationControl } from './LocationControl';
 
 // Center City Philadelphia coordinates
 const PHILADELPHIA_CENTER = [39.9526, -75.1652] as [number, number];
@@ -801,6 +802,15 @@ export default function Map() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Location sharing control */}
+      <div className="absolute top-16 right-4 z-[1000]">
+        <LocationControl
+          enabled={locationEnabled}
+          onToggle={handleLocationToggle}
+          hasError={!!locationError}
+        />
       </div>
     </div>
   );
