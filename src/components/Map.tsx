@@ -212,7 +212,16 @@ export default function Map() {
 
   // Determine if we should use dark theme
   const isDark = mounted ? (theme === 'dark' || (theme === 'system' && systemTheme === 'dark')) : false;
-  
+
+  // Check if location tracking was enabled in previous session
+  const getInitialZoom = () => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('locationSharingEnabled');
+      return saved === 'true' ? 15 : 13;
+    }
+    return 13;
+  };
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -547,7 +556,7 @@ export default function Map() {
     <div className="w-full h-screen">
       <MapContainer
         center={PHILADELPHIA_CENTER}
-        zoom={13}
+        zoom={getInitialZoom()}
         className="w-full h-full"
         zoomControl={false}
       >
