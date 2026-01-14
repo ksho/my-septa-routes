@@ -510,6 +510,38 @@ export default function Map() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationEnabled]); // watchId intentionally excluded to prevent infinite loop
 
+  // Inner component to control map viewport
+  function MapController({ userLocation, enabled, hasInitialZoomRef }: {
+    userLocation: { lat: number; lng: number } | null;
+    enabled: boolean;
+    hasInitialZoomRef: React.MutableRefObject<boolean>;
+  }) {
+    const map = useMap();
+
+    useEffect(() => {
+      if (enabled && userLocation) {
+        if (!hasInitialZoomRef.current) {
+          // First time: zoom in to user location
+          console.log('Initial zoom to:', userLocation);
+          map.flyTo([userLocation.lat, userLocation.lng], 16, {
+            duration: 1.5,
+            easeLinearity: 0.25
+          });
+          hasInitialZoomRef.current = true;
+        } else {
+          // Subsequent updates: only pan, don't change zoom
+          console.log('Panning to:', userLocation);
+          map.panTo([userLocation.lat, userLocation.lng], {
+            animate: true,
+            duration: 1.0
+          });
+        }
+      }
+    }, [userLocation, enabled, map, hasInitialZoomRef]);
+
+    return null;
+  }
+
   return (
     <div className="w-full h-screen">
       <MapContainer
