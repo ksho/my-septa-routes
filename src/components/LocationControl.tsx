@@ -44,7 +44,7 @@ export function LocationControl({ enabled, onToggle, hasError }: LocationControl
         aria-label="Toggle location tracking"
       />
       <span className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
-        📍 Track
+        ⚓️ Location
       </span>
     </button>
   );
