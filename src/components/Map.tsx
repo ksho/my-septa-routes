@@ -215,7 +215,23 @@ export default function Map() {
   useEffect(() => {
     setMounted(true);
   }, []);
-  
+
+  // Load location sharing preference from localStorage
+  useEffect(() => {
+    if (!mounted) return;
+    const saved = localStorage.getItem('locationSharingEnabled');
+    if (saved === 'true') {
+      setLocationEnabled(true);
+    }
+  }, [mounted]);
+
+  // Handle location sharing toggle
+  const handleLocationToggle = useCallback(() => {
+    const newValue = !locationEnabled;
+    setLocationEnabled(newValue);
+    localStorage.setItem('locationSharingEnabled', String(newValue));
+  }, [locationEnabled]);
+
   // Get routes from URL or use defaults
   const getRoutesFromURL = useCallback(() => {
     const routesParam = searchParams.get('routes');
