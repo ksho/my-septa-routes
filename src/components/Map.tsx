@@ -639,6 +639,37 @@ export default function Map() {
             </Popup>
           </Marker>
         ))}
+
+        {/* Map controller for viewport management */}
+        <MapController
+          userLocation={userLocation}
+          enabled={locationEnabled}
+          hasInitialZoomRef={hasInitialZoomRef}
+        />
+
+        {/* User location marker */}
+        {userLocation && locationEnabled && (
+          <CircleMarker
+            center={[userLocation.lat, userLocation.lng]}
+            radius={8}
+            pathOptions={{
+              color: '#FFFFFF',
+              fillColor: '#4285F4',
+              fillOpacity: 0.85,
+              weight: 3,
+              className: 'user-location-marker user-location-ring',
+            }}
+          >
+            <Popup>
+              <div style={{ padding: '8px' }}>
+                <h3 style={{ fontWeight: 'bold', marginBottom: '4px' }}>Your Location</h3>
+                <p style={{ fontSize: '12px', margin: 0 }}>
+                  {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+                </p>
+              </div>
+            </Popup>
+          </CircleMarker>
+        )}
       </MapContainer>
       
       {loading && (
@@ -649,7 +680,26 @@ export default function Map() {
           </div>
         </div>
       )}
-      
+
+      {/* Location error banner */}
+      {locationError && (
+        <div className="absolute top-20 right-4 bg-red-500/90 dark:bg-red-600/90 backdrop-blur-sm p-3 rounded-lg shadow-lg z-[1000] max-w-xs">
+          <div className="flex items-start space-x-2">
+            <span className="text-white text-xl">⚠️</span>
+            <div className="flex-1">
+              <p className="text-white text-sm font-medium">{locationError}</p>
+            </div>
+            <button
+              onClick={() => setLocationError(null)}
+              className="text-white hover:text-gray-200 font-bold text-lg leading-none"
+              aria-label="Dismiss error"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="absolute bottom-4 left-4 bg-white/65 dark:bg-gray-800/65 backdrop-blur-sm rounded-lg shadow-lg z-[1000] w-64 transition-all duration-300 ease-in-out">
         <div className="flex items-center justify-between p-3 pb-2">
           <h3 className="font-bold text-sm text-gray-900 dark:text-white">Routes ({selectedRoutes.length}/10)</h3>
