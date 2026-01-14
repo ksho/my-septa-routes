@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl } from 'react-leaflet';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl, CircleMarker, useMap } from 'react-leaflet';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import L from 'leaflet';
@@ -201,7 +201,14 @@ export default function Map() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
+
+  // Location sharing state
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [watchId, setWatchId] = useState<number | null>(null);
+  const hasInitialZoomRef = useRef(false);
+
   // Determine if we should use dark theme
   const isDark = mounted ? (theme === 'dark' || (theme === 'system' && systemTheme === 'dark')) : false;
   
