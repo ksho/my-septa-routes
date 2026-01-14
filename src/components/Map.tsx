@@ -434,11 +434,81 @@ export default function Map() {
   // Set up vehicle data polling
   useEffect(() => {
     if (selectedRoutes.length === 0) return;
-    
+
     const interval = setInterval(fetchVehicleData, 5000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoutes]);
+
+  // Handle geolocation tracking
+  useEffect(() => {
+    if (!locationEnabled) {
+      // Stop watching position
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        setWatchId(null);
+      }
+      setUserLocation(null);
+      setLocationError(null);
+      hasInitialZoomRef.current = false;
+      return;
+    }
+
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser');
+      setLocationEnabled(false);
+      return;
+    }
+
+    const successCallback = (position: GeolocationPosition) => {
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      });
+      setLocationError(null);
+    };
+
+    const errorCallback = (error: GeolocationPositionError) => {
+      console.error('Geolocation error:', error);
+      let errorMessage = 'Unable to retrieve your location';
+
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = 'Location permission denied. Please enable location access in your browser settings.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = 'Location information unavailable';
+          break;
+        case error.TIMEOUT:
+          errorMessage = 'Location request timed out';
+          break;
+      }
+
+      setLocationError(errorMessage);
+      setLocationEnabled(false);
+      setUserLocation(null);
+    };
+
+    // Start watching position
+    const id = navigator.geolocation.watchPosition(
+      successCallback,
+      errorCallback,
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000, // 10 seconds
+        timeout: 5000 // 5 seconds
+      }
+    );
+
+    setWatchId(id);
+
+    // Cleanup
+    return () => {
+      navigator.geolocation.clearWatch(id);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationEnabled]); // watchId intentionally excluded to prevent infinite loop
 
   return (
     <div className="w-full h-screen">
