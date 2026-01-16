@@ -208,6 +208,7 @@ export default function Map() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [watchId, setWatchId] = useState<number | null>(null);
+  const [isManuallyDragged, setIsManuallyDragged] = useState(false);
   const hasInitialZoomRef = useRef(false);
 
   // Determine if we should use dark theme
@@ -240,7 +241,23 @@ export default function Map() {
     const newValue = !locationEnabled;
     setLocationEnabled(newValue);
     localStorage.setItem('locationSharingEnabled', String(newValue));
+    // Reset manual drag state when disabling location
+    if (!newValue) {
+      setIsManuallyDragged(false);
+    }
   }, [locationEnabled]);
+
+  // Handle map drag start
+  const handleMapDragStart = useCallback(() => {
+    if (locationEnabled) {
+      setIsManuallyDragged(true);
+    }
+  }, [locationEnabled]);
+
+  // Handle re-center button click
+  const handleRecenter = useCallback(() => {
+    setIsManuallyDragged(false);
+  }, []);
 
   // Get routes from URL or use defaults
   const getRoutesFromURL = useCallback(() => {
@@ -520,24 +537,51 @@ export default function Map() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationEnabled]); // watchId intentionally excluded to prevent infinite loop
 
-  // Inner component to control map viewport
-  function MapController({ userLocation, enabled, hasInitialZoomRef }: {
-    userLocation: { lat: number; lng: number } | null;
-    enabled: boolean;
-    hasInitialZoomRef: React.MutableRefObject<boolean>;
-  }) {
+  // Inner component to detect map drag events
+  function DragDetector({ onDragStart }: { onDragStart: () => void }) {
     const map = useMap();
 
     useEffect(() => {
-      if (enabled && userLocation) {
-        if (!hasInitialZoomRef.current) {
-          // First time: zoom in to user location (same as initial load zoom)
-          console.log('Initial zoom to:', userLocation);
-          map.flyTo([userLocation.lat, userLocation.lng], 15, {
+      const handleDragStart = () => {
+        onDragStart();
+      };
+
+      map.on('dragstart', handleDragStart);
+
+      return () => {
+        map.off('dragstart', handleDragStart);
+      };
+    }, [map, onDragStart]);
+
+    return null;
+  }
+
+  // Inner component to control map viewport
+  function MapController({ userLocation, enabled, isManuallyDragged, hasInitialZoomRef }: {
+    userLocation: { lat: number; lng: number } | null;
+    enabled: boolean;
+    isManuallyDragged: boolean;
+    hasInitialZoomRef: React.MutableRefObject<boolean>;
+  }) {
+    const map = useMap();
+    const previouslyDraggedRef = useRef(false);
+
+    useEffect(() => {
+      // Check if user just clicked re-center (transition from dragged to not dragged)
+      const justRecentered = previouslyDraggedRef.current && !isManuallyDragged;
+      previouslyDraggedRef.current = isManuallyDragged;
+
+      if (enabled && userLocation && !isManuallyDragged) {
+        if (!hasInitialZoomRef.current || justRecentered) {
+          // First time or just re-centered: fly to user location
+          console.log(justRecentered ? 'Re-centering to:' : 'Initial zoom to:', userLocation);
+          map.flyTo([userLocation.lat, userLocation.lng], justRecentered ? map.getZoom() : 15, {
             duration: 1.5,
             easeLinearity: 0.25
           });
-          hasInitialZoomRef.current = true;
+          if (!hasInitialZoomRef.current) {
+            hasInitialZoomRef.current = true;
+          }
         } else {
           // Subsequent updates: only pan, don't change zoom
           console.log('Panning to:', userLocation);
@@ -547,7 +591,7 @@ export default function Map() {
           });
         }
       }
-    }, [userLocation, enabled, map, hasInitialZoomRef]);
+    }, [userLocation, enabled, isManuallyDragged, map, hasInitialZoomRef]);
 
     return null;
   }
@@ -650,10 +694,14 @@ export default function Map() {
           </Marker>
         ))}
 
+        {/* Drag detector for manual map dragging */}
+        <DragDetector onDragStart={handleMapDragStart} />
+
         {/* Map controller for viewport management */}
         <MapController
           userLocation={userLocation}
           enabled={locationEnabled}
+          isManuallyDragged={isManuallyDragged}
           hasInitialZoomRef={hasInitialZoomRef}
         />
 
@@ -826,6 +874,8 @@ export default function Map() {
           enabled={locationEnabled}
           onToggle={handleLocationToggle}
           hasError={!!locationError}
+          showRecenter={isManuallyDragged}
+          onRecenter={handleRecenter}
         />
       </div>
     </div>
