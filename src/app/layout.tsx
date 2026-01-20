@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "SEPTA LIVE",
-  description: "Real-time tracking of SEPTA bus routes on an interactive map",
+  description: "Live locations of all your favorite SEPTA routes.",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
 };
 
