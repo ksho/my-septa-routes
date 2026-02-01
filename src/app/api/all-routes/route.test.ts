@@ -25,11 +25,13 @@ describe('All Routes API Route Handler', () => {
       await GET();
 
       const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const decodedUrl = decodeURIComponent(fetchCall);
+
       expect(fetchCall).toContain('services2.arcgis.com');
       expect(fetchCall).toContain('Transit_Routes_(Spring_2025)');
       expect(fetchCall).toContain('FeatureServer/0/query');
-      expect(fetchCall).toContain('where=1=1');
-      expect(fetchCall).toContain('outFields=LineAbbr,LineName');
+      expect(decodedUrl).toContain('where=1=1');
+      expect(decodedUrl).toContain('outFields=LineAbbr,LineName');
       expect(fetchCall).toContain('returnGeometry=false');
       expect(fetchCall).toContain('f=json');
     });
@@ -312,7 +314,8 @@ describe('All Routes API Route Handler', () => {
   });
 
   describe('Error Handling', () => {
-    it('should return 500 when an unexpected error occurs', async () => {
+    it('should gracefully handle bus route fetch failure and still return rail/trolley', async () => {
+      // Mock fetch failure for bus routes
       (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error('Unexpected error')
       );
@@ -320,18 +323,27 @@ describe('All Routes API Route Handler', () => {
       const response = await GET();
       const data = await response.json();
 
-      expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch route list' });
+      // Should still succeed with 200 (graceful degradation)
+      expect(response.status).toBe(200);
+      expect(data).toHaveProperty('routes');
+
+      // Should still include rail and trolley routes
+      const hasRailRoutes = data.routes.some((r: { type: string }) => r.type === 'rail');
+      const hasTrolleyRoutes = data.routes.some((r: { type: string }) => r.type === 'trolley');
+
+      expect(hasRailRoutes).toBe(true);
+      expect(hasTrolleyRoutes).toBe(true);
     });
 
-    it('should log errors to console', async () => {
+    it('should log warnings when bus route fetch fails', async () => {
       (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error('Test error')
       );
 
       await GET();
 
-      expect(console.error).toHaveBeenCalled();
+      // fetchBusRoutes logs warnings on failure
+      expect(console.warn).toHaveBeenCalled();
     });
   });
 

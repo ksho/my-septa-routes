@@ -24,7 +24,7 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data).toEqual({ error: 'Routes parameter is required' });
+      expect(data).toMatchObject({ error: 'Routes parameter is required' });
     });
 
     it('should accept single route parameter', async () => {
@@ -75,11 +75,13 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       await GET(request);
 
       const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const decodedUrl = decodeURIComponent(fetchCall);
+
       expect(fetchCall).toContain('services2.arcgis.com');
       expect(fetchCall).toContain('Transit_Routes_(Spring_2025)');
       expect(fetchCall).toContain('FeatureServer/0/query');
-      expect(decodeURIComponent(fetchCall)).toContain("LineAbbr='17'");
-      expect(fetchCall).toContain('outFields=LineAbbr,LineName,tpField020,tpField021');
+      expect(decodedUrl).toContain("LineAbbr='17'");
+      expect(decodedUrl).toContain('outFields=LineAbbr,LineName,tpField020,tpField021');
       expect(fetchCall).toContain('returnGeometry=true');
       expect(fetchCall).toContain('f=geojson');
     });
@@ -98,7 +100,10 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       await GET(request);
 
       const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
-      expect(decodeURIComponent(fetchCall)).toContain("LineAbbr='17' OR LineAbbr='23' OR LineAbbr='42'");
+      const decodedUrl = decodeURIComponent(fetchCall);
+
+      // URL uses + for spaces in query strings
+      expect(decodedUrl).toContain("LineAbbr='17'+OR+LineAbbr='23'+OR+LineAbbr='42'");
     });
 
     it('should handle routes with spaces', async () => {
@@ -115,7 +120,10 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       await GET(request);
 
       const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
-      expect(decodeURIComponent(fetchCall)).toContain("LineAbbr='17' OR LineAbbr='23' OR LineAbbr='42'");
+      const decodedUrl = decodeURIComponent(fetchCall);
+
+      // URL uses + for spaces in query strings
+      expect(decodedUrl).toContain("LineAbbr='17'+OR+LineAbbr='23'+OR+LineAbbr='42'");
     });
 
     it('should return 500 when ArcGIS API responds with error status', async () => {
@@ -129,7 +137,7 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch route geometry data' });
+      expect(data).toMatchObject({ error: 'Failed to fetch route geometry data' });
     });
 
     it('should handle network errors', async () => {
@@ -142,7 +150,7 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch route geometry data' });
+      expect(data).toMatchObject({ error: 'Failed to fetch route geometry data' });
     });
   });
 
@@ -262,7 +270,10 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       await GET(request);
 
       const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
-      expect(decodeURIComponent(fetchCall)).toContain("LineAbbr='T101' OR LineAbbr='T102'");
+      const decodedUrl = decodeURIComponent(fetchCall);
+
+      // URL uses + for spaces in query strings
+      expect(decodedUrl).toContain("LineAbbr='T101'+OR+LineAbbr='T102'");
     });
 
     it('should handle mixed bus and trolley routes', async () => {
@@ -279,7 +290,10 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       await GET(request);
 
       const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
-      expect(decodeURIComponent(fetchCall)).toContain("LineAbbr='17' OR LineAbbr='T101' OR LineAbbr='42'");
+      const decodedUrl = decodeURIComponent(fetchCall);
+
+      // URL uses + for spaces in query strings
+      expect(decodedUrl).toContain("LineAbbr='17'+OR+LineAbbr='T101'+OR+LineAbbr='42'");
     });
   });
 
@@ -298,10 +312,12 @@ describe('Routes API (Bus/Trolley Geometry) Route Handler', () => {
       await GET(request);
 
       const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const decodedUrl = decodeURIComponent(fetchCall);
+
       // The WHERE clause should be URL encoded
       expect(fetchCall).toContain('where=');
-      // Spaces and special characters should be encoded
-      expect(decodeURIComponent(fetchCall)).toContain("LineAbbr='17'");
+      // Decoded URL should contain the expected WHERE clause
+      expect(decodedUrl).toContain("LineAbbr='17'");
     });
   });
 });

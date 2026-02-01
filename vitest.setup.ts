@@ -8,6 +8,7 @@ beforeAll(() => {
     ...console,
     error: vi.fn(),
     warn: vi.fn(),
+    log: vi.fn(),
   };
 });
 

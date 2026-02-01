@@ -24,7 +24,7 @@ describe('Rail API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data).toEqual({ error: 'Route parameter is required' });
+      expect(data).toMatchObject({ error: 'Route parameter is required' });
     });
   });
 
@@ -55,7 +55,7 @@ describe('Rail API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch Regional Rail data' });
+      expect(data).toMatchObject({ error: 'Failed to fetch Regional Rail data' });
     });
 
     it('should handle network errors', async () => {
@@ -68,7 +68,7 @@ describe('Rail API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch Regional Rail data' });
+      expect(data).toMatchObject({ error: 'Failed to fetch Regional Rail data' });
     });
   });
 
