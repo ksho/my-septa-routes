@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
                   .map((bus: SeptaTransitViewBus) => ({
                     lat: parseFloat(bus.lat || '0'),
                     lng: parseFloat(bus.lng || '0'),
-                    label: bus.VehicleID || route,
+                    label: route, // Use route number for marker label
                     VehicleID: bus.VehicleID || '',
                     Direction: bus.Direction || '',
                     destination: bus.destination || '',
