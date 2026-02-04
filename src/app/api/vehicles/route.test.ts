@@ -136,6 +136,52 @@ describe('GET /api/vehicles', () => {
       expect(data.bus[0].VehicleID).toBe('T101');
     });
 
+    it('should use route number for label field, not vehicle ID', async () => {
+      const mockTransitViewAllResponse = {
+        routes: [{
+          '17': [
+            {
+              lat: '39.9526',
+              lng: '-75.1652',
+              VehicleID: '1234',
+              Direction: 'NorthBound',
+              destination: 'Suburban Station',
+              late: '5',
+            },
+          ],
+          '42': [
+            {
+              lat: '39.9600',
+              lng: '-75.1700',
+              VehicleID: '5678',
+              Direction: 'SouthBound',
+              destination: 'City Hall',
+              late: '2',
+            },
+          ],
+        }],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockTransitViewAllResponse,
+      });
+
+      const request = createMockRequest('17,42');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.bus).toHaveLength(2);
+
+      // Label should be the route number, not the vehicle ID
+      expect(data.bus[0].label).toBe('17');
+      expect(data.bus[0].VehicleID).toBe('1234');
+
+      expect(data.bus[1].label).toBe('42');
+      expect(data.bus[1].VehicleID).toBe('5678');
+    });
+
     it('should filter out buses with missing coordinates', async () => {
       const mockTransitViewAllResponse = {
         routes: [{
