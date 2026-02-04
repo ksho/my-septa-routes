@@ -6,14 +6,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { REGIONAL_RAIL_LINES, isRegionalRailRoute, DEFAULT_REGIONAL_RAIL_LINE } from '../constants/routes';
+import { isRegionalRailRoute } from '@/constants/routes';
+import { PHILADELPHIA_CENTER, DEFAULT_ROUTES } from '@/constants/map.constants';
+import { generateRouteColor } from '@/utils/routeColors';
+import { createRouteIcon } from '@/utils/routeIcons';
+import { isValidCoordinate, parseRoutesFromURL } from '@/utils/mapHelpers';
+import type { RouteGeometry } from '@/utils/mapHelpers';
 import { LocationControl } from './LocationControl';
-
-// Center City Philadelphia coordinates
-const PHILADELPHIA_CENTER = [39.9526, -75.1652] as [number, number];
-
-// Default SEPTA routes (used when no routes in URL)
-const DEFAULT_ROUTES = ['57', '47', '42', '9', '12', '21', '29', DEFAULT_REGIONAL_RAIL_LINE];
 
 interface Vehicle {
   lat: number;
@@ -38,145 +37,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: '/leaflet/marker-icon.png',
   shadowUrl: '/leaflet/marker-shadow.png',
 });
-
-// Extended route color mapping for better visualization
-const ROUTE_COLORS: { [key: string]: string } = {
-  // Bus routes (colorful)
-  '2': '#FF5722', '3': '#E91E63', '4': '#9C27B0', '5': '#673AB7',
-  '6': '#3F51B5', '7': '#2196F3', '9': '#FF6B6B', '12': '#4ECDC4',
-  '14': '#009688', '16': '#4CAF50', '17': '#8BC34A', '18': '#CDDC39',
-  '20': '#FFEB3B', '21': '#45B7D1', '22': '#FF9800', '23': '#FF5722',
-  '24': '#795548', '25': '#607D8B', '26': '#F44336', '27': '#E91E63',
-  '28': '#9C27B0', '29': '#FF8C42', '32': '#3F51B5', '33': '#2196F3',
-  '37': '#00BCD4', '38': '#009688', '39': '#4CAF50', '40': '#8BC34A',
-  '41': '#CDDC39', '42': '#96CEB4', '43': '#FF9800', '44': '#FF5722',
-  '45': '#795548', '46': '#607D8B', '47': '#FFEAA7', '48': '#E91E63',
-  '49': '#9C27B0', '51': '#673AB7', '52': '#3F51B5', '53': '#2196F3',
-  '54': '#00BCD4', '55': '#009688', '56': '#4CAF50', '57': '#DDA0DD',
-  '58': '#CDDC39', '59': '#FFEB3B', '60': '#FF9800', '61': '#FF5722',
-  '63': '#607D8B', '64': '#F44336', '65': '#E91E63', '66': '#9C27B0',
-  '67': '#673AB7', '68': '#3F51B5', '70': '#2196F3', '71': '#00BCD4',
-  '75': '#009688', '77': '#4CAF50', '79': '#8BC34A', '81': '#CDDC39',
-  '82': '#FFEB3B', '84': '#FF9800', '93': '#FF5722', '94': '#795548',
-  '96': '#607D8B', '97': '#F44336', '98': '#E91E63', '99': '#9C27B0',
-  'K': '#FF6B35',
-  
-  // Trolley routes (distinctive colors)
-  'T1': '#00BCD4', 'T2': '#FF9800', 'T3': '#4CAF50', 'T4': '#9C27B0', 'T5': '#F44336',
-  'T101': '#795548', 'T102': '#607D8B',
-  
-  // Regional Rail lines (various shades of gray)
-  [REGIONAL_RAIL_LINES.AIRPORT_LINE]: '#909090',
-  [REGIONAL_RAIL_LINES.CHESTNUT_HILL_EAST]: '#696969',
-  [REGIONAL_RAIL_LINES.CHESTNUT_HILL_WEST]: '#555555',
-  [REGIONAL_RAIL_LINES.CYNWYD]: '#A9A9A9',
-  [REGIONAL_RAIL_LINES.FOX_CHASE]: '#778899',
-  [REGIONAL_RAIL_LINES.LANSDALE_DOYLESTOWN]: '#708090',
-  [REGIONAL_RAIL_LINES.MEDIA_WAWA]: '#2F4F4F',
-  [REGIONAL_RAIL_LINES.NORRISTOWN]: '#7A7A7A',
-  [REGIONAL_RAIL_LINES.PAOLI_THORNDALE]: '#808080',
-  [REGIONAL_RAIL_LINES.TRENTON]: '#6B6B6B',
-  [REGIONAL_RAIL_LINES.WARMINSTER]: '#4F4F4F',
-  [REGIONAL_RAIL_LINES.WEST_TRENTON]: '#5A5A5A',
-  [REGIONAL_RAIL_LINES.WILMINGTON_NEWARK]: '#737373'
-};
-
-// Use the imported helper function for Regional Rail detection
-const isRegionalRail = isRegionalRailRoute;
-
-// Generate a color for routes not in the predefined list
-const generateRouteColor = (route: string): string => {
-  if (ROUTE_COLORS[route]) return ROUTE_COLORS[route];
-  
-  // Regional Rail routes - various shades of gray
-  if (isRegionalRail(route)) {
-    const grayShades = ['#808080', '#696969', '#555555', '#A9A9A9', '#778899', '#708090', '#2F4F4F'];
-    let hash = 0;
-    for (let i = 0; i < route.length; i++) {
-      hash = route.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return grayShades[Math.abs(hash) % grayShades.length];
-  }
-  
-  // Trolley routes (T prefix) - distinctive colors
-  if (route.startsWith('T')) {
-    const trolleyColors = ['#00BCD4', '#FF9800', '#4CAF50', '#9C27B0', '#F44336', '#795548', '#607D8B'];
-    let hash = 0;
-    for (let i = 0; i < route.length; i++) {
-      hash = route.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return trolleyColors[Math.abs(hash) % trolleyColors.length];
-  }
-  
-  // Bus routes - generate colorful hues
-  let hash = 0;
-  for (let i = 0; i < route.length; i++) {
-    hash = route.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 70%, 50%)`;
-};
-
-// Create colored markers for each route
-const createRouteIcon = (route: string) => {
-  const color = generateRouteColor(route);
-  
-  // Determine display text and marker shape based on route type  
-  let displayText = route;
-  const isRail = isRegionalRail(route);
-  
-  if (isRail && displayText.length > 12) {
-    displayText = displayText.substring(0, 10) + '...';
-  }
-  
-  // Calculate width for Regional Rail rectangles based on text length
-  let width = 24;
-  let height = 24;
-  let iconSize: [number, number] = [24, 24];
-  let iconAnchor: [number, number] = [12, 12];
-  
-  if (isRail) {
-    // Estimate width based on character count (roughly 7px per character + padding)
-    width = Math.max(60, displayText.length * 7 + 16);
-    height = 20;
-    iconSize = [width, height];
-    iconAnchor = [width / 2, height / 2];
-  }
-  
-  return L.divIcon({
-    html: `
-      <div class="route-marker" style="
-        background-color: ${color};
-        width: ${width}px;
-        height: ${height}px;
-        border-radius: ${isRail ? '10px' : '50%'};
-        border: 2px solid rgba(255,255,255,0.8);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-        opacity: 0.85;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: Arial, sans-serif;
-        font-size: ${isRail ? '9px' : '11px'};
-        font-weight: bold;
-        color: white;
-        text-align: center;
-        line-height: 1;
-        white-space: nowrap;
-        text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
-      ">${displayText}</div>
-    `,
-    className: '',
-    iconSize: iconSize,
-    iconAnchor: iconAnchor,
-    popupAnchor: [0, isRail ? -10 : -12],
-  });
-};
-
-interface RouteGeometry {
-  type: 'LineString' | 'MultiLineString';
-  coordinates: [number, number][] | [number, number][][];
-}
 
 interface RouteFeature {
   type: 'Feature';
@@ -327,8 +187,8 @@ export default function Map() {
       console.log('Fetching route geometry for routes:', selectedRoutes.join(','));
       
       // Separate routes by type
-      const busAndTrolleyRoutes = selectedRoutes.filter(route => !isRegionalRail(route));
-      const railRoutes = selectedRoutes.filter(route => isRegionalRail(route));
+      const busAndTrolleyRoutes = selectedRoutes.filter(route => !isRegionalRailRoute(route));
+      const railRoutes = selectedRoutes.filter(route => isRegionalRailRoute(route));
       
       const allFeatures: RouteFeature[] = [];
       
@@ -387,7 +247,7 @@ export default function Map() {
           let response;
           
           // Determine API endpoint based on route type
-          if (isRegionalRail(route)) {
+          if (isRegionalRailRoute(route)) {
             // Regional Rail - use rail API
             response = await fetch(`/api/rail?route=${route}`);
           } else if (route.startsWith('T')) {
@@ -619,12 +479,13 @@ export default function Map() {
           const route = feature.properties.LineAbbr;
           console.log('Processing route:', route, 'geometry type:', feature.geometry.type);
           
-          // Handle both LineString and MultiLineString geometries
+          // Convert GeoJSON coordinates to Leaflet format
+          // Keep MultiLineString segments separate to avoid connecting disconnected segments
           let coordinateSets: [number, number][][] = [];
-          
+
           if (feature.geometry.type === 'LineString') {
             const coords = feature.geometry.coordinates as [number, number][];
-            coordinateSets = [coords.map(coord => 
+            coordinateSets = [coords.map(coord =>
               [coord[1], coord[0]] as [number, number]
             )];
           } else if (feature.geometry.type === 'MultiLineString') {
@@ -663,7 +524,7 @@ export default function Map() {
                   marginBottom: '8px', 
                   color: generateRouteColor(vehicle.label)
                 }}>
-                  {isRegionalRail(vehicle.label)
+                  {isRegionalRailRoute(vehicle.label)
                     ? `Rail ${vehicle.label}`
                     : vehicle.label.startsWith('T') 
                     ? `Trolley ${vehicle.label}`
@@ -841,7 +702,7 @@ export default function Map() {
                         style={{backgroundColor: generateRouteColor(route)}}
                       ></div>
                       <span className="text-gray-900 dark:text-white">
-                        {isRegionalRail(route)
+                        {isRegionalRailRoute(route)
                           ? `Rail ${route}`
                           : route.startsWith('T') 
                           ? `Trolley ${route}`
