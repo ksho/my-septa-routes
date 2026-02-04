@@ -7,6 +7,7 @@
 /**
  * Raw bus/trolley data from SEPTA TransitView API
  * @see https://www3.septa.org/api/TransitView/
+ * @see https://www3.septa.org/hackathon/TransitViewAll/
  */
 export interface SeptaTransitViewBus {
   lat?: string;
@@ -14,15 +15,35 @@ export interface SeptaTransitViewBus {
   VehicleID?: string;
   Direction?: string;
   destination?: string;
+  late?: string | number;
+  heading?: number;
+  BlockID?: string;
+  Offset?: string;
+  Offset_sec?: string;
+  trip?: string;
+  route_id?: string;
+  next_stop_id?: string;
+  next_stop_name?: string;
   [key: string]: unknown;
 }
 
 /**
- * Response structure from SEPTA TransitView API
+ * Response structure from SEPTA TransitView API (single route)
  */
 export interface SeptaTransitViewResponse {
   bus?: SeptaTransitViewBus[];
   [key: string]: unknown;
+}
+
+/**
+ * Response structure from SEPTA TransitViewAll API
+ * Returns all buses/trolleys grouped by route number
+ * @see https://www3.septa.org/hackathon/TransitViewAll/
+ */
+export interface SeptaTransitViewAllResponse {
+  routes: Array<{
+    [routeNumber: string]: SeptaTransitViewBus[];
+  }>;
 }
 
 /**

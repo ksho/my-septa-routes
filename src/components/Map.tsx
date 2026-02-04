@@ -237,69 +237,39 @@ export default function Map() {
       setLoading(false);
       return;
     }
-    
+
     try {
-      const allVehicles: Vehicle[] = [];
-      
-      // Fetch data for each route using appropriate API based on route type
-      for (const route of selectedRoutes) {
-        try {
-          let response;
-          
-          // Determine API endpoint based on route type
-          if (isRegionalRailRoute(route)) {
-            // Regional Rail - use rail API
-            response = await fetch(`/api/rail?route=${route}`);
-          } else if (route.startsWith('T')) {
-            // Trolley - use existing septa API (TransitView supports trolleys)
-            response = await fetch(`/api/septa?route=${route.substring(1)}`); // Remove T prefix for API call
-          } else {
-            // Bus - use existing septa API
-            response = await fetch(`/api/septa?route=${route}`);
-          }
-          
-          if (!response.ok) {
-            console.warn(`Failed to fetch data for route ${route}: ${response.status}`);
-            continue;
-          }
-          
-          const data = await response.json();
-          
-          if (data.bus && Array.isArray(data.bus)) {
-            const routeVehicles = data.bus.map((bus: {
-              lat: string;
-              lng: string;
-              label?: string;
-              VehicleID: string;
-              Direction: string;
-              destination?: string;
-              late?: string;
-            }) => {
-              const vehicle = {
-                lat: parseFloat(bus.lat),
-                lng: parseFloat(bus.lng),
-                label: route, // Use the route number we're fetching for
-                VehicleID: bus.VehicleID,
-                Direction: bus.Direction,
-                destination: bus.destination || 'Unknown',
-                late: parseInt(bus.late || '0') || 0,
-              };
-              return vehicle;
-            }).filter((vehicle: Vehicle) => 
-              !isNaN(vehicle.lat) && !isNaN(vehicle.lng) && 
-              vehicle.lat !== 0 && vehicle.lng !== 0
-            );
-            allVehicles.push(...routeVehicles);
-          }
-        } catch (routeError) {
-          console.error(`Error fetching route ${route}:`, routeError);
-        }
+      // Use optimized bulk endpoint - fetches all routes in a single API call
+      // This reduces Vercel function invocations from N to 1 (massive cost savings)
+      const routesParam = selectedRoutes.join(',');
+      const response = await fetch(`/api/vehicles?routes=${encodeURIComponent(routesParam)}`);
+
+      if (!response.ok) {
+        console.warn(`Failed to fetch vehicle data: ${response.status}`);
+        setVehicles([]);
+        setLoading(false);
+        return;
       }
-      
-      setVehicles(allVehicles);
+
+      const data = await response.json();
+
+      if (data.bus && Array.isArray(data.bus)) {
+        // Filter out invalid coordinates
+        const validVehicles = data.bus.filter((vehicle: Vehicle) =>
+          !isNaN(vehicle.lat) &&
+          !isNaN(vehicle.lng) &&
+          vehicle.lat !== 0 &&
+          vehicle.lng !== 0
+        );
+        setVehicles(validVehicles);
+      } else {
+        setVehicles([]);
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching vehicle data:', error);
+      setVehicles([]);
       setLoading(false);
     }
   };
