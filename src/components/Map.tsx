@@ -473,7 +473,7 @@ export default function Map() {
               pathOptions={{
                 color: generateRouteColor(route),
                 weight: 4,
-                opacity: 0.6,
+                opacity: isDark ? 0.4 : 0.6,
               }}
             />
           ));
