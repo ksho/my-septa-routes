@@ -17,7 +17,7 @@
  * Returns: { routes: [{ number: "9", name: "Route 9", type: "bus" }, ...] }
  */
 
-import { createErrorResponse, createSuccessResponse, handleApiError } from '@/lib/api/apiResponse';
+import { createSuccessResponse, handleApiError } from '@/lib/api/apiResponse';
 import { ARCGIS_ENDPOINTS } from '@/config/api.config';
 import { REGIONAL_RAIL_LINES } from '@/constants/routes';
 import type { RouteInfo, ArcGISFeatureCollection, ArcGISRouteAttributes } from '@/types/septa-api.types';

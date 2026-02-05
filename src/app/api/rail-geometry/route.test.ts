@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from './route';
 import { NextRequest } from 'next/server';
-import { SEPTA_LINE_NAME_MAPPING } from '../../../constants/routes';
 
 // Mock fetch globally
 global.fetch = vi.fn();

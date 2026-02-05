@@ -53,24 +53,6 @@ export function convertGeoJSONToLeaflet(
 }
 
 /**
- * Validates that coordinates are valid numbers and not [0, 0]
- *
- * @param lat - Latitude
- * @param lng - Longitude
- * @returns true if coordinates are valid and not null island
- */
-export function isValidCoordinate(lat: number, lng: number): boolean {
-  return (
-    !isNaN(lat) &&
-    !isNaN(lng) &&
-    lat !== 0 &&
-    lng !== 0 &&
-    Math.abs(lat) <= 90 &&
-    Math.abs(lng) <= 180
-  );
-}
-
-/**
  * Formats a route number for display in the URL
  *
  * @param route - Route number or name
@@ -78,18 +60,4 @@ export function isValidCoordinate(lat: number, lng: number): boolean {
  */
 export function formatRouteForURL(route: string): string {
   return encodeURIComponent(route);
-}
-
-/**
- * Parses routes from URL query parameter
- *
- * @param routesParam - Comma-separated routes from URL
- * @returns Array of route strings
- */
-export function parseRoutesFromURL(routesParam: string | null): string[] {
-  if (!routesParam) return [];
-  return routesParam
-    .split(',')
-    .map((r) => decodeURIComponent(r.trim()))
-    .filter((r) => r.length > 0);
 }

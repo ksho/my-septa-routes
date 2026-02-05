@@ -27,21 +27,8 @@ import type {
   SeptaTransitViewAllResponse,
   SeptaTrainViewResponse,
   SeptaTransitViewBus,
+  NormalizedVehicle,
 } from '@/types/septa-api.types';
-
-interface Vehicle {
-  lat: number;
-  lng: number;
-  label: string;
-  VehicleID: string;
-  Direction: string;
-  destination: string;
-  late: number;
-}
-
-interface VehicleResponse {
-  bus: Vehicle[];
-}
 
 export async function GET(request: NextRequest) {
   // Extract and validate routes parameter
@@ -63,7 +50,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const allVehicles: Vehicle[] = [];
+    const allVehicles: NormalizedVehicle[] = [];
 
     // Separate routes by type for optimized fetching
     const busAndTrolleyRoutes = routes.filter((route) => !isRegionalRailRoute(route));

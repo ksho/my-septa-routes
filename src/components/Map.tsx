@@ -10,7 +10,6 @@ import { isRegionalRailRoute } from '@/constants/routes';
 import { PHILADELPHIA_CENTER, DEFAULT_ROUTES } from '@/constants/map.constants';
 import { generateRouteColor } from '@/utils/routeColors';
 import { createRouteIcon } from '@/utils/routeIcons';
-import { isValidCoordinate, parseRoutesFromURL } from '@/utils/mapHelpers';
 import type { RouteGeometry } from '@/utils/mapHelpers';
 import { LocationControl } from './LocationControl';
 
