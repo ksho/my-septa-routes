@@ -38,10 +38,12 @@ function parseLateMinutes(value: string | undefined): number {
  * Transforms a single train data object into normalized vehicle format
  *
  * @param train - Raw train data from SEPTA TrainView API
+ * @param routeLabel - Optional route label to use instead of train.line (for proper icon rendering)
  * @returns Normalized vehicle data
  */
 export function transformTrainToVehicle(
-  train: SeptaTrainViewTrain
+  train: SeptaTrainViewTrain,
+  routeLabel?: string
 ): NormalizedVehicle {
   return {
     // Coordinates (lat/lon in API, lat/lng in our format)
@@ -49,7 +51,8 @@ export function transformTrainToVehicle(
     lng: parseCoordinate(train.lon),
 
     // Line/route information
-    label: train.line || 'Unknown',
+    // Use provided routeLabel for proper icon rendering, fallback to train.line
+    label: routeLabel || train.line || 'Unknown',
 
     // Vehicle identification (prefer trainno, fallback to consist)
     VehicleID: train.trainno || train.consist || 'Unknown',
@@ -96,14 +99,14 @@ export function filterTrainsByLine(
  * Transforms and filters TrainView API response into normalized vehicle format
  *
  * @param trains - Raw train data array from SEPTA TrainView API
- * @param lineName - Optional line name to filter by
+ * @param lineName - Optional line name to filter by (also used as label for proper icon rendering)
  * @returns Vehicle response in standardized format
  *
  * @example
  * ```ts
  * const response = await fetch('https://www3.septa.org/api/TrainView/');
  * const trains = await response.json();
- * const vehicles = transformTrainResponse(trains, 'Airport');
+ * const vehicles = transformTrainResponse(trains, 'Airport Line');
  * ```
  */
 export function transformTrainResponse(
@@ -115,8 +118,10 @@ export function transformTrainResponse(
     ? filterTrainsByLine(trains, lineName)
     : trains;
 
-  // Transform to normalized format
-  const normalizedVehicles = filteredTrains.map(transformTrainToVehicle);
+  // Transform to normalized format, passing lineName as label for proper icon rendering
+  const normalizedVehicles = filteredTrains.map((train) =>
+    transformTrainToVehicle(train, lineName)
+  );
 
   // Return in standardized response structure
   // Note: Uses 'bus' key for compatibility with existing code
