@@ -1,3 +1,17 @@
+// SEPTA Subway lines
+export const SUBWAY_LINES = {
+  BSL: 'BSL', // Broad Street Line
+  MFL: 'MFL', // Market-Frankford Line
+} as const;
+
+// Array of all subway lines for easy iteration
+export const ALL_SUBWAY_LINES = Object.values(SUBWAY_LINES);
+
+// Helper function to check if a route is a subway line
+export const isSubwayRoute = (route: string): boolean => {
+  return ALL_SUBWAY_LINES.includes(route as typeof ALL_SUBWAY_LINES[number]);
+};
+
 // SEPTA Regional Rail line names
 export const REGIONAL_RAIL_LINES = {
   AIRPORT_LINE: 'Airport Line',

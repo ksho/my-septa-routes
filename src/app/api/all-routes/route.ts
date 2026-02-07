@@ -19,7 +19,7 @@
 
 import { createSuccessResponse, handleApiError } from '@/lib/api/apiResponse';
 import { ARCGIS_ENDPOINTS } from '@/config/api.config';
-import { REGIONAL_RAIL_LINES } from '@/constants/routes';
+import { REGIONAL_RAIL_LINES, SUBWAY_LINES } from '@/constants/routes';
 import type { RouteInfo, ArcGISFeatureCollection, ArcGISRouteAttributes } from '@/types/septa-api.types';
 
 /**
@@ -112,6 +112,20 @@ function getTrolleyRoutes(): RouteInfo[] {
 }
 
 /**
+ * Gets the hardcoded list of subway lines
+ * NOTE: Currently unused - waiting for real-time data. See docs/subway-implementation.md
+ *
+ * @returns Array of subway route info
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getSubwayRoutes(): RouteInfo[] {
+  return [
+    { number: SUBWAY_LINES.BSL, name: 'Broad Street Line', type: 'bus' }, // Using 'bus' type for now
+    { number: SUBWAY_LINES.MFL, name: 'Market-Frankford Line', type: 'bus' },
+  ];
+}
+
+/**
  * Sorts routes by type (bus → trolley → rail), then numerically within each type
  *
  * @param routes - Unsorted array of routes
@@ -157,6 +171,12 @@ export async function GET() {
     // Fetch bus and trolley routes from ArcGIS
     const busRoutes = await fetchBusRoutes();
     allRoutes.push(...busRoutes);
+
+    // Add subway lines (hardcoded)
+    // NOTE: Disabled until real-time or schedule-based data is available
+    // See docs/subway-implementation.md for details
+    // const subwayRoutes = getSubwayRoutes();
+    // allRoutes.push(...subwayRoutes);
 
     // Add regional rail lines (hardcoded)
     const railRoutes = getRegionalRailRoutes();

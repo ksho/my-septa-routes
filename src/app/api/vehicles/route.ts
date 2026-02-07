@@ -21,8 +21,9 @@
 import { NextRequest } from 'next/server';
 import { createErrorResponse, createSuccessResponse, handleApiError } from '@/lib/api/apiResponse';
 import { SEPTA_API_ENDPOINTS } from '@/config/api.config';
-import { isRegionalRailRoute } from '@/constants/routes';
+import { isRegionalRailRoute, isSubwayRoute } from '@/constants/routes';
 import { transformTrainResponse } from '@/lib/transformers/trainDataTransformer';
+import { parseGtfsRtPrintFormat, transformGtfsRtResponse } from '@/lib/transformers/gtfsRtTransformer';
 import type {
   SeptaTransitViewAllResponse,
   SeptaTrainViewResponse,
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest) {
     const allVehicles: NormalizedVehicle[] = [];
 
     // Separate routes by type for optimized fetching
-    const busAndTrolleyRoutes = routes.filter((route) => !isRegionalRailRoute(route));
+    const subwayRoutes = routes.filter((route) => isSubwayRoute(route));
+    const busAndTrolleyRoutes = routes.filter((route) => !isRegionalRailRoute(route) && !isSubwayRoute(route));
     const railRoutes = routes.filter((route) => isRegionalRailRoute(route));
 
     // Fetch bus and trolley data in bulk (if any)
@@ -130,6 +132,32 @@ export async function GET(request: NextRequest) {
       } catch (error) {
         console.error('Error fetching rail data:', error);
         // Continue even if rail data fails
+      }
+    }
+
+    // Fetch subway data in bulk (if any)
+    if (subwayRoutes.length > 0) {
+      try {
+        // Fetch from GTFS-RT feed for subway lines (BSL, MFL)
+        const response = await fetch(SEPTA_API_ENDPOINTS.GTFS_RT_VEHICLES);
+
+        if (response.ok) {
+          const htmlText = await response.text();
+          const gtfsData = parseGtfsRtPrintFormat(htmlText);
+
+          // Transform and filter for each requested subway line
+          for (const route of subwayRoutes) {
+            const vehicleData = transformGtfsRtResponse(gtfsData, route);
+            if (vehicleData.bus && Array.isArray(vehicleData.bus)) {
+              allVehicles.push(...vehicleData.bus);
+            }
+          }
+        } else {
+          console.warn(`GTFS-RT Vehicle API failed: ${response.status}`);
+        }
+      } catch (error) {
+        console.error('Error fetching subway data:', error);
+        // Continue even if subway data fails
       }
     }
 

@@ -6,7 +6,7 @@
  */
 
 import L from 'leaflet';
-import { isRegionalRailRoute } from '@/constants/routes';
+import { isRegionalRailRoute, isSubwayRoute } from '@/constants/routes';
 import { generateRouteColor } from './routeColors';
 
 /**
@@ -29,6 +29,14 @@ const ICON_SIZES = {
     /** Padding added to text width */
     padding: 16,
   },
+  /** Size for subway rectangular markers (similar to rail) */
+  SUBWAY: {
+    minWidth: 50,
+    height: 20,
+    fontSize: '10px',
+    charWidth: 8,
+    padding: 12,
+  },
 } as const;
 
 /**
@@ -37,9 +45,10 @@ const ICON_SIZES = {
  * Visual characteristics by route type:
  * - **Bus/Trolley**: Circular markers (24x24px) with route number
  * - **Regional Rail**: Rectangular markers with variable width based on name length
+ * - **Subway**: Rectangular markers (similar to rail) with blue colors
  * - All markers have colored backgrounds, white text, and drop shadows
  *
- * @param route - Route number or name (e.g., "17", "T101", "Airport Line")
+ * @param route - Route number or name (e.g., "17", "T101", "BSL", "Airport Line")
  * @returns Leaflet DivIcon with custom HTML styling
  *
  * @example
@@ -51,10 +60,11 @@ const ICON_SIZES = {
 export function createRouteIcon(route: string): L.DivIcon {
   const color = generateRouteColor(route);
   const isRail = isRegionalRailRoute(route);
+  const isSubway = isSubwayRoute(route);
 
-  // Determine display text - truncate long rail line names
+  // Determine display text - truncate long names
   let displayText = route;
-  if (isRail && displayText.length > 12) {
+  if ((isRail || isSubway) && displayText.length > 12) {
     displayText = displayText.substring(0, 10) + '...';
   }
 
@@ -75,6 +85,18 @@ export function createRouteIcon(route: string): L.DivIcon {
     );
     height = ICON_SIZES.RAIL.height;
     fontSize = ICON_SIZES.RAIL.fontSize;
+    borderRadius = '10px';
+    iconSize = [width, height];
+    iconAnchor = [width / 2, height / 2];
+    popupAnchor = [0, -10];
+  } else if (isSubway) {
+    // Subway: Rectangular markers (similar to rail)
+    width = Math.max(
+      ICON_SIZES.SUBWAY.minWidth,
+      displayText.length * ICON_SIZES.SUBWAY.charWidth + ICON_SIZES.SUBWAY.padding
+    );
+    height = ICON_SIZES.SUBWAY.height;
+    fontSize = ICON_SIZES.SUBWAY.fontSize;
     borderRadius = '10px';
     iconSize = [width, height];
     iconAnchor = [width / 2, height / 2];

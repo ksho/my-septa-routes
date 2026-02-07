@@ -11,6 +11,9 @@ export const SEPTA_API_ENDPOINTS = {
 
   /** Real-time regional rail train positions */
   TRAIN_VIEW: 'https://www3.septa.org/api/TrainView/index.php',
+
+  /** GTFS-RT vehicle positions for subway lines (BSL, MFL) - human-readable format */
+  GTFS_RT_VEHICLES: 'http://www3.septa.org/gtfsrt/septa-pa-us/Vehicle/print.php',
 } as const;
 
 /**

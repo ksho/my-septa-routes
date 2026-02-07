@@ -5,7 +5,7 @@
  * and regional rail lines on the map.
  */
 
-import { REGIONAL_RAIL_LINES, isRegionalRailRoute } from '@/constants/routes';
+import { REGIONAL_RAIL_LINES, isRegionalRailRoute, SUBWAY_LINES, isSubwayRoute } from '@/constants/routes';
 
 /**
  * Predefined color mappings for SEPTA routes.
@@ -38,6 +38,10 @@ export const ROUTE_COLORS: { [key: string]: string } = {
   // Trolley routes (distinctive colors)
   'T1': '#00BCD4', 'T2': '#FF9800', 'T3': '#4CAF50', 'T4': '#9C27B0', 'T5': '#F44336',
   'T101': '#795548', 'T102': '#607D8B',
+
+  // Subway lines (blue-gray shades)
+  [SUBWAY_LINES.BSL]: '#4A90E2', // Broad Street Line - medium blue
+  [SUBWAY_LINES.MFL]: '#5DADE2', // Market-Frankford Line - lighter blue
 
   // Regional Rail lines (various shades of gray)
   [REGIONAL_RAIL_LINES.AIRPORT_LINE]: '#909090',
@@ -92,6 +96,11 @@ export function generateRouteColor(route: string): string {
   // Return predefined color if it exists
   if (ROUTE_COLORS[route]) {
     return ROUTE_COLORS[route];
+  }
+
+  // Subway routes - blue-gray shades
+  if (isSubwayRoute(route)) {
+    return '#4A90E2'; // Default subway blue
   }
 
   // Regional Rail routes - various shades of gray

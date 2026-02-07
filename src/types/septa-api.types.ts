@@ -158,3 +158,43 @@ export interface RouteInfo {
 export interface AllRoutesResponse {
   routes: RouteInfo[];
 }
+
+/**
+ * GTFS-RT Vehicle entity from SEPTA's protobuf feed (parsed format)
+ * @see http://www3.septa.org/gtfsrt/septa-pa-us/Vehicle/print.php
+ */
+export interface GtfsRtVehicleEntity {
+  id: string;
+  vehicle: {
+    trip?: {
+      trip_id?: string;
+      route_id?: string;
+      direction_id?: number;
+    };
+    vehicle?: {
+      id?: string;
+      label?: string;
+    };
+    position?: {
+      latitude?: number;
+      longitude?: number;
+      bearing?: number;
+    };
+    current_stop_sequence?: number;
+    stop_id?: string;
+    timestamp?: number;
+    occupancy_status?: string;
+  };
+}
+
+/**
+ * GTFS-RT feed response structure
+ */
+export interface GtfsRtFeedResponse {
+  header: {
+    gtfs_realtime_version: string;
+    incrementality: string;
+    timestamp: number;
+  };
+  entity: GtfsRtVehicleEntity[];
+}
