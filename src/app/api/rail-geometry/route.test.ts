@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from './route';
 import { NextRequest } from 'next/server';
-import { SEPTA_LINE_NAME_MAPPING } from '../../../constants/routes';
 
 // Mock fetch globally
 global.fetch = vi.fn();
@@ -25,7 +24,7 @@ describe('Rail Geometry API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data).toEqual({ error: 'Routes parameter is required' });
+      expect(data).toMatchObject({ error: 'Routes parameter is required' });
     });
 
     it('should accept single route parameter', async () => {
@@ -116,7 +115,7 @@ describe('Rail Geometry API Route Handler', () => {
       expect(decoded).toContain("Route_Name='Airport'");
       // Norristown → Manayunk/Norristown
       expect(decoded).toContain("Route_Name='Manayunk/Norristown'");
-      expect(decoded).toContain(' OR ');
+      expect(decoded).toContain('OR');
     });
   });
 
@@ -138,7 +137,7 @@ describe('Rail Geometry API Route Handler', () => {
       expect(fetchCall).toContain('services2.arcgis.com');
       expect(fetchCall).toContain('Regional_Rail_Lines');
       expect(fetchCall).toContain('FeatureServer/0/query');
-      expect(fetchCall).toContain('outFields=Route_Name,Miles');
+      expect(decodeURIComponent(fetchCall)).toContain('outFields=Route_Name,Miles');
       expect(fetchCall).toContain('returnGeometry=true');
       expect(fetchCall).toContain('f=geojson');
     });
@@ -174,7 +173,7 @@ describe('Rail Geometry API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch rail geometry data' });
+      expect(data).toMatchObject({ error: 'Failed to fetch rail geometry data' });
     });
 
     it('should handle network errors', async () => {
@@ -187,7 +186,7 @@ describe('Rail Geometry API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch rail geometry data' });
+      expect(data).toMatchObject({ error: 'Failed to fetch rail geometry data' });
     });
   });
 

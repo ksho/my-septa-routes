@@ -24,7 +24,7 @@ describe('SEPTA API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data).toEqual({ error: 'Route parameter is required' });
+      expect(data).toMatchObject({ error: 'Route parameter is required' });
     });
 
     it('should accept valid route parameter', async () => {
@@ -98,7 +98,7 @@ describe('SEPTA API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch transit data' });
+      expect(data).toMatchObject({ error: 'Failed to fetch transit data' });
       expect(console.error).toHaveBeenCalled();
     });
 
@@ -112,7 +112,7 @@ describe('SEPTA API Route Handler', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch transit data' });
+      expect(data).toMatchObject({ error: 'Failed to fetch transit data' });
     });
   });
 

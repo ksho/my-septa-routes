@@ -1,66 +1,48 @@
-import { NextResponse } from 'next/server';
+/**
+ * API Route: Regional Rail Vehicle Positions
+ *
+ * Fetches real-time train positions from SEPTA's TrainView API
+ * and filters by the requested rail line.
+ *
+ * @endpoint GET /api/rail?route={lineName}
+ * @param route - Rail line name to filter (e.g., "Airport", "Norristown")
+ * @returns Normalized vehicle data for trains on the specified line
+ *
+ * @example
+ * GET /api/rail?route=Airport
+ * Returns all trains currently operating on the Airport Line
+ */
+
+import { createErrorResponse, createSuccessResponse, handleApiError } from '@/lib/api/apiResponse';
+import { transformTrainResponse } from '@/lib/transformers/trainDataTransformer';
+import { SEPTA_API_ENDPOINTS } from '@/config/api.config';
+import type { SeptaTrainViewResponse } from '@/types/septa-api.types';
 
 export async function GET(request: Request) {
+  // Extract and validate route parameter
   const { searchParams } = new URL(request.url);
   const route = searchParams.get('route');
 
   if (!route) {
-    return NextResponse.json({ error: 'Route parameter is required' }, { status: 400 });
+    return createErrorResponse('Route parameter is required', 400);
   }
 
   try {
-    // For Regional Rail, use the TrainView API
-    const response = await fetch('https://www3.septa.org/api/TrainView/index.php');
-    
+    // Fetch real-time train data from SEPTA TrainView API
+    const response = await fetch(SEPTA_API_ENDPOINTS.TRAIN_VIEW);
+
     if (!response.ok) {
       throw new Error(`SEPTA TrainView API responded with status: ${response.status}`);
     }
 
-    const data = await response.json();
-    
-    // Filter for specific line if route is provided
-    const trains = data.filter((train: { line?: string }) => {
-      // Match by line name (e.g., "Airport Line", "Chestnut Hill East", etc.)
-      return train.line && train.line.toLowerCase().includes(route.trim().toLowerCase());
-    }).map((train: { 
-      lat?: string; 
-      lon?: string; 
-      line?: string; 
-      trainno?: string; 
-      consist?: string; 
-      direction?: string; 
-      heading?: string; 
-      dest?: string; 
-      nextstop?: string; 
-      late?: string; 
-      service?: string; 
-      track?: string; 
-    }) => ({
-      lat: parseFloat(train.lat || '0') || 0,
-      lng: parseFloat(train.lon || '0') || 0,
-      label: train.line || 'Unknown',
-      VehicleID: train.trainno || train.consist || 'Unknown',
-      Direction: train.direction || train.heading || 'Unknown',
-      destination: train.dest || train.nextstop || 'Unknown',
-      late: parseInt(train.late || '0') || 0,
-      service: train.service || 'Regional Rail',
-      track: train.track || null
-    }));
+    // Parse the raw train data
+    const trains: SeptaTrainViewResponse = await response.json();
 
-    return NextResponse.json({
-      bus: trains // Keep the same structure as bus API for compatibility
-    }, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
+    // Transform and filter trains for the requested line
+    const vehicleData = transformTrainResponse(trains, route);
+
+    return createSuccessResponse(vehicleData);
   } catch (error) {
-    console.error('Error fetching Regional Rail data:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch Regional Rail data' },
-      { status: 500 }
-    );
+    return handleApiError('fetch Regional Rail data', error);
   }
 }
