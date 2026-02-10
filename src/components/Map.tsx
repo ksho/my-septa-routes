@@ -70,6 +70,13 @@ export default function Map() {
   const [isManuallyDragged, setIsManuallyDragged] = useState(false);
   const hasInitialZoomRef = useRef(false);
 
+  // Zoom level state for dynamic line weight
+  const [currentZoom, setCurrentZoom] = useState(13);
+
+  // Vehicle tracking state - detect if user is on a bus
+  const [trackedVehicle, setTrackedVehicle] = useState<{ vehicleId: string; route: string; startTime: number } | null>(null);
+  const [detectedRide, setDetectedRide] = useState<{ vehicleId: string; route: string } | null>(null);
+
   // Determine if we should use dark theme
   const isDark = mounted ? (theme === 'dark' || (theme === 'system' && systemTheme === 'dark')) : false;
 
@@ -117,6 +124,34 @@ export default function Map() {
   const handleRecenter = useCallback(() => {
     setIsManuallyDragged(false);
   }, []);
+
+  // Handle zoom change
+  const handleZoomChange = useCallback((zoom: number) => {
+    setCurrentZoom(zoom);
+  }, []);
+
+  // Calculate line weight based on zoom level
+  const getLineWeight = (zoom: number): number => {
+    if (zoom <= 12) return 2;      // Zoomed out: thin lines
+    if (zoom <= 14) return 2.5;    // Medium zoom: medium-thin lines
+    return 3.5;                    // Zoomed in: medium lines
+  };
+
+  // Calculate distance between two coordinates in meters (Haversine formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+  };
 
   // Get routes from URL or use defaults
   const getRoutesFromURL = useCallback(() => {
@@ -296,6 +331,65 @@ export default function Map() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoutes]);
 
+  // Detect if user is on a bus by tracking proximity to vehicles
+  useEffect(() => {
+    if (!userLocation || !locationEnabled || vehicles.length === 0) {
+      setTrackedVehicle(null);
+      setDetectedRide(null);
+      return;
+    }
+
+    const PROXIMITY_THRESHOLD = 50; // meters - consider user "on" vehicle if within this distance
+    const DETECTION_TIME = 15000; // 15 seconds in milliseconds
+
+    // Find the closest vehicle
+    let closestVehicle: Vehicle | null = null;
+    let closestDistance = Infinity;
+
+    vehicles.forEach(vehicle => {
+      const distance = calculateDistance(
+        userLocation.lat,
+        userLocation.lng,
+        vehicle.lat,
+        vehicle.lng
+      );
+
+      if (distance <= PROXIMITY_THRESHOLD && distance < closestDistance) {
+        closestVehicle = vehicle;
+        closestDistance = distance;
+      }
+    });
+
+    if (closestVehicle !== null) {
+      const currentVehicle: Vehicle = closestVehicle;
+      const vehicleId = currentVehicle.VehicleID;
+      const route = currentVehicle.label;
+
+      // Check if we're already tracking this vehicle
+      if (trackedVehicle && trackedVehicle.vehicleId === vehicleId) {
+        const timeTracking = Date.now() - trackedVehicle.startTime;
+
+        // If we've been near this vehicle for 15+ seconds, mark as detected
+        if (timeTracking >= DETECTION_TIME && !detectedRide) {
+          console.log(`Detected user on ${route} - Vehicle ${vehicleId}`);
+          setDetectedRide({ vehicleId, route });
+        }
+      } else {
+        // Start tracking a new vehicle
+        console.log(`Started tracking proximity to ${route} - Vehicle ${vehicleId}`);
+        setTrackedVehicle({ vehicleId, route, startTime: Date.now() });
+        setDetectedRide(null); // Clear any previous detection
+      }
+    } else {
+      // Not near any vehicle, reset tracking
+      if (trackedVehicle) {
+        console.log('No longer near any vehicle');
+      }
+      setTrackedVehicle(null);
+      setDetectedRide(null);
+    }
+  }, [userLocation, vehicles, locationEnabled, trackedVehicle, detectedRide]);
+
   // Handle geolocation tracking
   useEffect(() => {
     if (!locationEnabled) {
@@ -385,6 +479,42 @@ export default function Map() {
     return null;
   }
 
+  // Inner component to track zoom level
+  function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+    const map = useMap();
+
+    useEffect(() => {
+      const handleZoom = () => {
+        onZoomChange(map.getZoom());
+      };
+
+      map.on('zoomend', handleZoom);
+      // Set initial zoom
+      onZoomChange(map.getZoom());
+
+      return () => {
+        map.off('zoomend', handleZoom);
+      };
+    }, [map, onZoomChange]);
+
+    return null;
+  }
+
+  // Inner component to create custom pane for user location marker
+  function UserLocationPane() {
+    const map = useMap();
+
+    useEffect(() => {
+      // Create a custom pane with higher z-index for user location marker
+      if (!map.getPane('userLocationPane')) {
+        const pane = map.createPane('userLocationPane');
+        pane.style.zIndex = '650'; // Higher than marker pane (600) but lower than popup pane (700)
+      }
+    }, [map]);
+
+    return null;
+  }
+
   // Inner component to control map viewport
   function MapController({ userLocation, enabled, isManuallyDragged, hasInitialZoomRef }: {
     userLocation: { lat: number; lng: number } | null;
@@ -434,7 +564,7 @@ export default function Map() {
         zoomControl={false}
       >
         <TileLayer
-          url={isDark 
+          url={isDark
             ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           }
@@ -447,9 +577,72 @@ export default function Map() {
         {routeGeometry.map((feature, index) => {
           const route = feature.properties.LineAbbr;
           console.log('Processing route:', route, 'geometry type:', feature.geometry.type);
-          
+
+          // Helper function to check if two points are the same
+          const pointsMatch = (p1: [number, number], p2: [number, number], tolerance = 0.0001): boolean => {
+            return Math.abs(p1[0] - p2[0]) < tolerance && Math.abs(p1[1] - p2[1]) < tolerance;
+          };
+
+          // Helper function to calculate angle between two points
+          const getAngle = (p1: [number, number], p2: [number, number]): number => {
+            return Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
+          };
+
+          // Helper function to check if two segments are directionally aligned
+          const segmentsAligned = (seg1End: [number, number][], seg2Start: [number, number][]): boolean => {
+            if (seg1End.length < 2 || seg2Start.length < 2) return true; // Can't determine, allow merge
+
+            // Get last few points of first segment and first few points of second segment
+            const seg1Point1 = seg1End[seg1End.length - 2];
+            const seg1Point2 = seg1End[seg1End.length - 1];
+            const seg2Point1 = seg2Start[0];
+            const seg2Point2 = seg2Start[1];
+
+            const angle1 = getAngle(seg1Point1, seg1Point2);
+            const angle2 = getAngle(seg2Point1, seg2Point2);
+
+            // Calculate absolute difference in angles
+            let angleDiff = Math.abs(angle1 - angle2);
+            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+
+            // Allow merge if angles are within 60 degrees (π/3 radians)
+            return angleDiff < Math.PI / 3;
+          };
+
+          // Helper function to merge connected segments
+          const mergeConnectedSegments = (segments: [number, number][][]): [number, number][][] => {
+            if (segments.length <= 1) return segments;
+
+            const MAX_MERGED_POINTS = 1000; // Prevent merging too many points into one segment
+            const merged: [number, number][][] = [];
+            let current = [...segments[0]];
+
+            for (let i = 1; i < segments.length; i++) {
+              const segment = segments[i];
+              const currentEnd = current[current.length - 1];
+              const segmentStart = segment[0];
+
+              // Check if this segment connects to the current one and won't exceed max length
+              const wouldExceedMax = (current.length + segment.length - 1) > MAX_MERGED_POINTS;
+              const pointsConnect = pointsMatch(currentEnd, segmentStart);
+              const aligned = segmentsAligned(current.slice(-3), segment.slice(0, 3));
+
+              if (pointsConnect && !wouldExceedMax && aligned) {
+                // Merge by appending all points except the duplicate first point
+                current.push(...segment.slice(1));
+              } else {
+                // Not connected, misaligned, or would be too long - start a new merged segment
+                merged.push(current);
+                current = [...segment];
+              }
+            }
+
+            // Add the last segment
+            merged.push(current);
+            return merged;
+          };
+
           // Convert GeoJSON coordinates to Leaflet format
-          // Keep MultiLineString segments separate to avoid connecting disconnected segments
           let coordinateSets: [number, number][][] = [];
 
           if (feature.geometry.type === 'LineString') {
@@ -459,12 +652,14 @@ export default function Map() {
             )];
           } else if (feature.geometry.type === 'MultiLineString') {
             const coords = feature.geometry.coordinates as [number, number][][];
-            coordinateSets = coords.map(lineString =>
+            const segments = coords.map(lineString =>
               lineString.map(coord => [coord[1], coord[0]] as [number, number])
             );
+            // Merge connected segments to avoid overlap artifacts
+            coordinateSets = mergeConnectedSegments(segments);
           }
-          
-          console.log('Route', route, 'has', coordinateSets.length, 'line segments');
+
+          console.log('Route', route, 'has', coordinateSets.length, 'merged line segments');
           
           return coordinateSets.map((coordinates, segmentIndex) => (
             <Polyline
@@ -472,9 +667,12 @@ export default function Map() {
               positions={coordinates}
               pathOptions={{
                 color: generateRouteColor(route),
-                weight: 4,
-                opacity: isDark ? 0.4 : 0.6,
+                weight: getLineWeight(currentZoom),
+                opacity: isDark ? 0.3 : 0.45,
+                lineCap: 'round',
+                lineJoin: 'round',
               }}
+              smoothFactor={8.0}
             />
           ));
         }).flat()}
@@ -524,6 +722,12 @@ export default function Map() {
           </Marker>
         ))}
 
+        {/* Track zoom level for dynamic line weight */}
+        <ZoomTracker onZoomChange={handleZoomChange} />
+
+        {/* Create custom pane for user location marker */}
+        <UserLocationPane />
+
         {/* Drag detector for manual map dragging */}
         <DragDetector onDragStart={handleMapDragStart} />
 
@@ -540,6 +744,7 @@ export default function Map() {
           <CircleMarker
             center={[userLocation.lat, userLocation.lng]}
             radius={8}
+            pane="userLocationPane"
             pathOptions={{
               color: '#FFFFFF',
               fillColor: '#4285F4',
@@ -588,6 +793,32 @@ export default function Map() {
               onClick={() => setLocationError(null)}
               className="text-white hover:text-gray-200 font-bold text-lg leading-none"
               aria-label="Dismiss error"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Detected ride notification */}
+      {detectedRide && (
+        <div className="absolute top-20 left-4 bg-blue-500/90 dark:bg-blue-600/90 backdrop-blur-sm p-3 rounded-lg shadow-lg z-[1000] max-w-xs">
+          <div className="flex items-start space-x-2">
+            <span className="text-white text-xl">🚌</span>
+            <div className="flex-1">
+              <p className="text-white text-sm font-medium">
+                Riding {isRegionalRailRoute(detectedRide.route)
+                  ? `Rail ${detectedRide.route}`
+                  : detectedRide.route.startsWith('T')
+                  ? `Trolley ${detectedRide.route}`
+                  : `Route ${detectedRide.route}`}
+              </p>
+              <p className="text-white text-xs opacity-90">Vehicle {detectedRide.vehicleId}</p>
+            </div>
+            <button
+              onClick={() => setDetectedRide(null)}
+              className="text-white hover:text-gray-200 font-bold text-lg leading-none"
+              aria-label="Dismiss notification"
             >
               ×
             </button>

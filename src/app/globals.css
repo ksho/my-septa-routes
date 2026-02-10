@@ -168,9 +168,20 @@ html {
 .user-location-marker,
 path.user-location-marker {
   animation: fade-pulse 1.8s ease-in-out infinite !important;
+  z-index: 1000 !important;
+  position: relative !important;
 }
 
 .user-location-ring,
 path.user-location-ring {
   animation: pulse-ring 1.8s ease-out infinite !important;
+  z-index: 1000 !important;
+  position: relative !important;
+}
+
+/* Ensure parent SVG container is also elevated */
+svg:has(.user-location-marker),
+svg:has(.user-location-ring) {
+  z-index: 1000 !important;
+  position: relative !important;
 }
