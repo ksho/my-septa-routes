@@ -12,6 +12,8 @@ import { generateRouteColor } from '@/utils/routeColors';
 import { createRouteIcon } from '@/utils/routeIcons';
 import type { RouteGeometry } from '@/utils/mapHelpers';
 import { LocationControl } from './LocationControl';
+import { PermalinkButton } from './PermalinkButton';
+import { ThemeToggle } from './ThemeToggle';
 
 interface Vehicle {
   lat: number;
@@ -698,8 +700,15 @@ export default function Map() {
         </div>
       </div>
 
-      {/* Location sharing control */}
-      <div className="absolute top-16 right-4 z-[1000]">
+      {/* Top-right controls */}
+      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+        {/* Permalink and Theme buttons */}
+        <div className="flex gap-2 w-full">
+          <PermalinkButton />
+          <ThemeToggle />
+        </div>
+
+        {/* Location sharing control */}
         <LocationControl
           enabled={locationEnabled}
           onToggle={handleLocationToggle}
