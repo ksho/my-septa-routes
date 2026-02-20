@@ -15,8 +15,8 @@ export function ThemeToggle() {
   if (!mounted) {
     // Return a placeholder with same dimensions to prevent layout shift
     return (
-      <button 
-        className="p-2 rounded-lg bg-white/65 shadow-lg backdrop-blur-sm text-xl"
+      <button
+        className="flex-1 h-10 rounded-lg bg-white/65 shadow-lg backdrop-blur-sm text-xl flex items-center justify-center"
         suppressHydrationWarning={true}
       >
         🌙
@@ -62,7 +62,7 @@ export function ThemeToggle() {
     <button
       onClick={toggleTheme}
       title={getTooltip()}
-      className="p-2 rounded-lg bg-white/65 dark:bg-gray-800/65 shadow-lg backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-700/80 transition-colors duration-200 text-xl"
+      className="flex-1 h-10 rounded-lg bg-white/65 dark:bg-gray-800/65 shadow-lg backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-700/80 transition-colors duration-200 text-xl flex items-center justify-center"
     >
       {getIcon()}
     </button>
