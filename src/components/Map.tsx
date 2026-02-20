@@ -50,6 +50,31 @@ interface RouteFeature {
   geometry: RouteGeometry;
 }
 
+const ROUTES_STORAGE_KEY = 'savedRoutes';
+
+function saveRoutesToLocalStorage(routes: string[]) {
+  try {
+    localStorage.setItem(ROUTES_STORAGE_KEY, JSON.stringify(routes));
+  } catch {
+    // Silently fail if localStorage is unavailable
+  }
+}
+
+function getRoutesFromLocalStorage(): string[] | null {
+  try {
+    const stored = localStorage.getItem(ROUTES_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(String);
+      }
+    }
+  } catch {
+    // Silently fail if localStorage is unavailable or data is corrupt
+  }
+  return null;
+}
+
 export default function Map() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -120,16 +145,22 @@ export default function Map() {
     setIsManuallyDragged(false);
   }, []);
 
-  // Get routes from URL or use defaults
+  // Get routes from URL, local storage, or defaults (in that priority order)
   const getRoutesFromURL = useCallback(() => {
     const routesParam = searchParams.get('routes');
     if (routesParam) {
-      return routesParam.split(',').map(r => r.trim()).filter(r => r);
+      const routes = routesParam.split(',').map(r => r.trim()).filter(r => r);
+      saveRoutesToLocalStorage(routes);
+      return routes;
+    }
+    const storedRoutes = getRoutesFromLocalStorage();
+    if (storedRoutes) {
+      return storedRoutes;
     }
     return DEFAULT_ROUTES;
   }, [searchParams]);
   
-  // Update URL when routes change
+  // Update URL and local storage when routes change
   const updateURL = useCallback((routes: string[]) => {
     const params = new URLSearchParams(searchParams.toString());
     if (routes.length > 0) {
@@ -138,6 +169,7 @@ export default function Map() {
       params.delete('routes');
     }
     router.push(`?${params.toString()}`, { scroll: false });
+    saveRoutesToLocalStorage(routes);
   }, [router, searchParams]);
   
   // Add a route
@@ -279,7 +311,12 @@ export default function Map() {
   useEffect(() => {
     const routes = getRoutesFromURL();
     setSelectedRoutes(routes);
+    // If no query params exist, populate the URL so it stays shareable
+    if (!searchParams.get('routes')) {
+      updateURL(routes);
+    }
     fetchAvailableRoutes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getRoutesFromURL]);
   
   // Fetch data when selected routes change
