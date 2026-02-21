@@ -37,6 +37,11 @@ const ICON_SIZES = {
     charWidth: 8,
     padding: 12,
   },
+  /** Size for nearby route diamond badges */
+  NEARBY_BADGE: {
+    size: 24,
+    fontSize: '9px',
+  },
 } as const;
 
 /**
@@ -139,5 +144,69 @@ export function createRouteIcon(route: string): L.DivIcon {
     iconSize,
     iconAnchor,
     popupAnchor,
+  });
+}
+
+/**
+ * Creates a diamond-shaped badge icon for nearby routes.
+ *
+ * Visual characteristics:
+ * - Diamond shape (rotated square) with dark greyscale background
+ * - Small route number/label in white text
+ * - Semi-transparent with subtle shadow
+ * - Visually distinct from active vehicle markers
+ *
+ * @param route - Route number or name (e.g., "17", "T101", "Airport Line")
+ * @param isDark - Whether dark theme is active
+ * @returns Leaflet DivIcon with diamond-shaped styling
+ *
+ * @example
+ * ```ts
+ * const icon = createNearbyRouteBadge("17", false);
+ * L.marker([lat, lng], { icon }).addTo(map);
+ * ```
+ */
+export function createNearbyRouteBadge(route: string, isDark: boolean): L.DivIcon {
+  const size = ICON_SIZES.NEARBY_BADGE.size;
+  const fontSize = ICON_SIZES.NEARBY_BADGE.fontSize;
+
+  // Dark greyscale color - darker for light theme, lighter for dark theme
+  const bgColor = isDark ? '#888888' : '#555555';
+
+  // Truncate long route names for display
+  let displayText = route;
+  if (displayText.length > 6) {
+    displayText = displayText.substring(0, 5) + '…';
+  }
+
+  return L.divIcon({
+    html: `
+      <div class="nearby-badge-diamond" style="
+        width: ${size}px;
+        height: ${size}px;
+        background-color: ${bgColor};
+        transform: rotate(45deg);
+        border: 1.5px solid rgba(255,255,255,0.4);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <div style="
+          transform: rotate(-45deg);
+          font-family: Arial, sans-serif;
+          font-size: ${fontSize};
+          font-weight: bold;
+          color: white;
+          text-align: center;
+          line-height: 1;
+          text-shadow: 1px 1px 1px rgba(0,0,0,0.8);
+        ">${displayText}</div>
+      </div>
+    `,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -14],
   });
 }
