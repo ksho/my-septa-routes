@@ -10,6 +10,7 @@ import { isRegionalRailRoute } from '@/constants/routes';
 import { PHILADELPHIA_CENTER, DEFAULT_ROUTES } from '@/constants/map.constants';
 import { generateRouteColor } from '@/utils/routeColors';
 import { createRouteIcon } from '@/utils/routeIcons';
+import { saveRoutesToLocalStorage, resolveRoutes } from '@/utils/routeStorage';
 import type { RouteGeometry } from '@/utils/mapHelpers';
 import { LocationControl } from './LocationControl';
 import { PermalinkButton } from './PermalinkButton';
@@ -120,16 +121,12 @@ export default function Map() {
     setIsManuallyDragged(false);
   }, []);
 
-  // Get routes from URL or use defaults
+  // Get routes from URL, local storage, or defaults (in that priority order)
   const getRoutesFromURL = useCallback(() => {
-    const routesParam = searchParams.get('routes');
-    if (routesParam) {
-      return routesParam.split(',').map(r => r.trim()).filter(r => r);
-    }
-    return DEFAULT_ROUTES;
+    return resolveRoutes(searchParams.get('routes'), DEFAULT_ROUTES);
   }, [searchParams]);
   
-  // Update URL when routes change
+  // Update URL and local storage when routes change
   const updateURL = useCallback((routes: string[]) => {
     const params = new URLSearchParams(searchParams.toString());
     if (routes.length > 0) {
@@ -138,6 +135,7 @@ export default function Map() {
       params.delete('routes');
     }
     router.push(`?${params.toString()}`, { scroll: false });
+    saveRoutesToLocalStorage(routes);
   }, [router, searchParams]);
   
   // Add a route
@@ -279,7 +277,12 @@ export default function Map() {
   useEffect(() => {
     const routes = getRoutesFromURL();
     setSelectedRoutes(routes);
+    // If no query params exist, populate the URL so it stays shareable
+    if (!searchParams.get('routes')) {
+      updateURL(routes);
+    }
     fetchAvailableRoutes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getRoutesFromURL]);
   
   // Fetch data when selected routes change
