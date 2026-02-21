@@ -10,6 +10,7 @@ import { isRegionalRailRoute } from '@/constants/routes';
 import { PHILADELPHIA_CENTER, DEFAULT_ROUTES } from '@/constants/map.constants';
 import { generateRouteColor } from '@/utils/routeColors';
 import { createRouteIcon } from '@/utils/routeIcons';
+import { saveRoutesToLocalStorage, resolveRoutes } from '@/utils/routeStorage';
 import type { RouteGeometry } from '@/utils/mapHelpers';
 import { LocationControl } from './LocationControl';
 import { PermalinkButton } from './PermalinkButton';
@@ -48,31 +49,6 @@ interface RouteFeature {
     tpField021?: string;
   };
   geometry: RouteGeometry;
-}
-
-const ROUTES_STORAGE_KEY = 'savedRoutes';
-
-function saveRoutesToLocalStorage(routes: string[]) {
-  try {
-    localStorage.setItem(ROUTES_STORAGE_KEY, JSON.stringify(routes));
-  } catch {
-    // Silently fail if localStorage is unavailable
-  }
-}
-
-function getRoutesFromLocalStorage(): string[] | null {
-  try {
-    const stored = localStorage.getItem(ROUTES_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map(String);
-      }
-    }
-  } catch {
-    // Silently fail if localStorage is unavailable or data is corrupt
-  }
-  return null;
 }
 
 export default function Map() {
@@ -147,17 +123,7 @@ export default function Map() {
 
   // Get routes from URL, local storage, or defaults (in that priority order)
   const getRoutesFromURL = useCallback(() => {
-    const routesParam = searchParams.get('routes');
-    if (routesParam) {
-      const routes = routesParam.split(',').map(r => r.trim()).filter(r => r);
-      saveRoutesToLocalStorage(routes);
-      return routes;
-    }
-    const storedRoutes = getRoutesFromLocalStorage();
-    if (storedRoutes) {
-      return storedRoutes;
-    }
-    return DEFAULT_ROUTES;
+    return resolveRoutes(searchParams.get('routes'), DEFAULT_ROUTES);
   }, [searchParams]);
   
   // Update URL and local storage when routes change
