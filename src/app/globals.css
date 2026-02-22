@@ -46,7 +46,7 @@ html {
 
 /* Leaflet popup styling for light and dark themes */
 .leaflet-popup-content-wrapper {
-  background: rgba(255, 255, 255, 0.65) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
   backdrop-filter: blur(8px) !important;
   border-radius: 8px !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
@@ -55,7 +55,7 @@ html {
 }
 
 .dark .leaflet-popup-content-wrapper {
-  background: rgba(31, 41, 55, 0.65) !important;
+  background: rgba(31, 41, 55, 0.9) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
   color: #f9fafb !important;
@@ -107,12 +107,12 @@ html {
 }
 
 .leaflet-popup-tip {
-  background: rgba(255, 255, 255, 0.65) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
   box-shadow: none !important;
 }
 
 .dark .leaflet-popup-tip {
-  background: rgba(31, 41, 55, 0.65) !important;
+  background: rgba(31, 41, 55, 0.9) !important;
 }
 
 .leaflet-popup-close-button {
@@ -164,6 +164,16 @@ html {
   }
 }
 
+/* Nearby route badge heartbeat animation */
+@keyframes heartbeat-fade {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
 /* Target SVG path elements directly for Leaflet compatibility */
 .user-location-marker,
 path.user-location-marker {
@@ -173,4 +183,9 @@ path.user-location-marker {
 .user-location-ring,
 path.user-location-ring {
   animation: pulse-ring 1.8s ease-out infinite !important;
+}
+
+/* Nearby route badge heartbeat animation */
+.nearby-badge-diamond {
+  animation: heartbeat-fade 2.5s ease-in-out infinite !important;
 }

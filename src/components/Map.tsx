@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl, CircleMarker, useMap } from 'react-leaflet';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -8,11 +8,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { isRegionalRailRoute } from '@/constants/routes';
 import { PHILADELPHIA_CENTER, DEFAULT_ROUTES } from '@/constants/map.constants';
+import { NEARBY_ROUTES_CONFIG } from '@/config/api.config';
 import { generateRouteColor } from '@/utils/routeColors';
-import { createRouteIcon } from '@/utils/routeIcons';
+import { createRouteIcon, createNearbyRouteBadge } from '@/utils/routeIcons';
 import { saveRoutesToLocalStorage, resolveRoutes } from '@/utils/routeStorage';
+import { distanceMiles } from '@/utils/geoUtils';
 import type { RouteGeometry } from '@/utils/mapHelpers';
 import { LocationControl } from './LocationControl';
+import { NearbyRoutesControl } from './NearbyRoutesControl';
 import { PermalinkButton } from './PermalinkButton';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -73,6 +76,12 @@ export default function Map() {
   const [isManuallyDragged, setIsManuallyDragged] = useState(false);
   const hasInitialZoomRef = useRef(false);
 
+  // Nearby routes discovery state
+  const [nearbyRoutesEnabled, setNearbyRoutesEnabled] = useState(false);
+  const [nearbyRouteFeatures, setNearbyRouteFeatures] = useState<RouteFeature[]>([]);
+  const lastNearbyQueryLocation = useRef<{ lat: number; lng: number } | null>(null);
+  const lastNearbyQueryTime = useRef<number>(0);
+
   // Determine if we should use dark theme
   const isDark = mounted ? (theme === 'dark' || (theme === 'system' && systemTheme === 'dark')) : false;
 
@@ -98,14 +107,36 @@ export default function Map() {
     }
   }, [mounted]);
 
+  // Load nearby routes preference from localStorage
+  useEffect(() => {
+    if (!mounted) return;
+    const savedLocation = localStorage.getItem('locationSharingEnabled');
+    const savedNearby = localStorage.getItem('nearbyRoutesEnabled');
+    // Only restore if location is also enabled
+    if (savedLocation === 'true' && savedNearby === 'true') {
+      setNearbyRoutesEnabled(true);
+    }
+  }, [mounted]);
+
   // Handle location sharing toggle
   const handleLocationToggle = useCallback(() => {
     const newValue = !locationEnabled;
     setLocationEnabled(newValue);
     localStorage.setItem('locationSharingEnabled', String(newValue));
-    // Reset manual drag state when disabling location
-    if (!newValue) {
+
+    if (newValue) {
+      // When enabling location, also enable nearby routes by default
+      setNearbyRoutesEnabled(true);
+      localStorage.setItem('nearbyRoutesEnabled', 'true');
+    } else {
+      // Reset manual drag state when disabling location
       setIsManuallyDragged(false);
+      // Also disable nearby routes when location is disabled
+      setNearbyRoutesEnabled(false);
+      localStorage.setItem('nearbyRoutesEnabled', 'false');
+      setNearbyRouteFeatures([]);
+      lastNearbyQueryLocation.current = null;
+      lastNearbyQueryTime.current = 0;
     }
   }, [locationEnabled]);
 
@@ -120,6 +151,18 @@ export default function Map() {
   const handleRecenter = useCallback(() => {
     setIsManuallyDragged(false);
   }, []);
+
+  // Handle nearby routes toggle
+  const handleNearbyRoutesToggle = useCallback(() => {
+    const newValue = !nearbyRoutesEnabled;
+    setNearbyRoutesEnabled(newValue);
+    localStorage.setItem('nearbyRoutesEnabled', String(newValue));
+    if (!newValue) {
+      setNearbyRouteFeatures([]);
+      lastNearbyQueryLocation.current = null;
+      lastNearbyQueryTime.current = 0;
+    }
+  }, [nearbyRoutesEnabled]);
 
   // Get routes from URL, local storage, or defaults (in that priority order)
   const getRoutesFromURL = useCallback(() => {
@@ -371,6 +414,55 @@ export default function Map() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationEnabled]); // watchId intentionally excluded to prevent infinite loop
 
+  // Fetch nearby routes when location changes
+  useEffect(() => {
+    if (!nearbyRoutesEnabled || !userLocation) {
+      return;
+    }
+
+    const now = Date.now();
+    const timeSinceLastQuery = now - lastNearbyQueryTime.current;
+
+    // Skip if minimum interval hasn't passed
+    if (timeSinceLastQuery < NEARBY_ROUTES_CONFIG.MIN_QUERY_INTERVAL) {
+      return;
+    }
+
+    // Skip if user hasn't moved enough
+    if (lastNearbyQueryLocation.current) {
+      const distanceMoved = distanceMiles(lastNearbyQueryLocation.current, userLocation);
+      if (distanceMoved < NEARBY_ROUTES_CONFIG.REQUERY_THRESHOLD) {
+        return;
+      }
+    }
+
+    // Fetch nearby routes
+    const fetchNearbyRoutes = async () => {
+      try {
+        const response = await fetch(
+          `/api/nearby-routes?lat=${userLocation.lat}&lng=${userLocation.lng}&distance=${NEARBY_ROUTES_CONFIG.QUERY_DISTANCE}`
+        );
+
+        if (!response.ok) {
+          console.warn('Failed to fetch nearby routes:', response.status);
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.features && Array.isArray(data.features)) {
+          setNearbyRouteFeatures(data.features);
+          lastNearbyQueryLocation.current = userLocation;
+          lastNearbyQueryTime.current = now;
+        }
+      } catch (error) {
+        console.error('Error fetching nearby routes:', error);
+      }
+    };
+
+    fetchNearbyRoutes();
+  }, [nearbyRoutesEnabled, userLocation]);
+
   // Inner component to detect map drag events
   function DragDetector({ onDragStart }: { onDragStart: () => void }) {
     const map = useMap();
@@ -447,7 +539,110 @@ export default function Map() {
           maxZoom={20}
         />
         <ZoomControl position="bottomright" />
-        
+
+        {/* Nearby routes (rendered first so they appear underneath selected routes) */}
+        {nearbyRouteFeatures
+          .filter(feature => !selectedRoutes.includes(feature.properties.LineAbbr))
+          .map((feature, index) => {
+            const route = feature.properties.LineAbbr;
+            let coordinateSets: [number, number][][] = [];
+
+            if (feature.geometry.type === 'LineString') {
+              const coords = feature.geometry.coordinates as [number, number][];
+              coordinateSets = [coords.map(coord =>
+                [coord[1], coord[0]] as [number, number]
+              )];
+            } else if (feature.geometry.type === 'MultiLineString') {
+              const coords = feature.geometry.coordinates as [number, number][][];
+              coordinateSets = coords.map(lineString =>
+                lineString.map(coord => [coord[1], coord[0]] as [number, number])
+              );
+            }
+
+            // Find point on route closest to user's location for badge placement
+            let badgePosition: [number, number] | null = null;
+            if (userLocation && coordinateSets.length > 0) {
+              let minDistance = Infinity;
+              coordinateSets.forEach(segment => {
+                segment.forEach(coord => {
+                  const distance = distanceMiles(
+                    { lat: coord[0], lng: coord[1] },
+                    userLocation
+                  );
+                  if (distance < minDistance) {
+                    minDistance = distance;
+                    badgePosition = coord;
+                  }
+                });
+              });
+            }
+
+            return (
+              <Fragment key={`nearby-route-group-${route}-${index}`}>
+                {/* Polylines */}
+                {coordinateSets.map((coordinates, segmentIndex) => (
+                  <Polyline
+                    key={`nearby-route-${route}-${index}-${segmentIndex}`}
+                    positions={coordinates}
+                    pathOptions={{
+                      color: isDark ? '#888888' : '#666666',
+                      weight: 3,
+                      opacity: isDark ? 0.3 : 0.4,
+                      dashArray: '8, 4',
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ padding: '8px', minWidth: '150px' }}>
+                        <h3 style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
+                          {isRegionalRailRoute(route)
+                            ? `Rail ${route}`
+                            : route.startsWith('T')
+                            ? `Trolley ${route}`
+                            : `Route ${route}`}
+                        </h3>
+                        <button
+                          onClick={() => addRoute(route)}
+                          className="w-full px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded"
+                          disabled={selectedRoutes.length >= 10}
+                        >
+                          Add to my routes
+                        </button>
+                      </div>
+                    </Popup>
+                  </Polyline>
+                ))}
+
+                {/* Static badge marker - diamond shaped, positioned closest to user */}
+                {badgePosition && (
+                  <Marker
+                    key={`nearby-badge-${route}-${index}`}
+                    position={badgePosition}
+                    icon={createNearbyRouteBadge(route, isDark)}
+                  >
+                    <Popup>
+                      <div style={{ padding: '8px', minWidth: '150px' }}>
+                        <h3 style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
+                          {isRegionalRailRoute(route)
+                            ? `Rail ${route}`
+                            : route.startsWith('T')
+                            ? `Trolley ${route}`
+                            : `Route ${route}`}
+                        </h3>
+                        <button
+                          onClick={() => addRoute(route)}
+                          className="w-full px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded"
+                          disabled={selectedRoutes.length >= 10}
+                        >
+                          Add to my routes
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+              </Fragment>
+            );
+          }).flat()}
+
         {/* Official SEPTA route paths */}
         {routeGeometry.map((feature, index) => {
           const route = feature.properties.LineAbbr;
@@ -718,6 +913,14 @@ export default function Map() {
           hasError={!!locationError}
           showRecenter={isManuallyDragged}
           onRecenter={handleRecenter}
+        />
+
+        {/* Nearby routes control */}
+        <NearbyRoutesControl
+          enabled={nearbyRoutesEnabled}
+          onToggle={handleNearbyRoutesToggle}
+          disabled={!locationEnabled}
+          nearbyCount={nearbyRouteFeatures.filter(f => !selectedRoutes.includes(f.properties.LineAbbr)).length}
         />
       </div>
     </div>

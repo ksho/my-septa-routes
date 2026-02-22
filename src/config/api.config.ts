@@ -57,3 +57,17 @@ export const POLLING_INTERVALS = {
   /** How often to check location (if enabled) */
   LOCATION_UPDATES: 1000, // 1 second
 } as const;
+
+/**
+ * Nearby routes discovery settings
+ */
+export const NEARBY_ROUTES_CONFIG = {
+  /** Search radius for nearby routes (in miles) */
+  QUERY_DISTANCE: 0.25,
+
+  /** Minimum user movement to trigger re-query (in miles) */
+  REQUERY_THRESHOLD: 0.1,
+
+  /** Minimum time between queries (in milliseconds) */
+  MIN_QUERY_INTERVAL: 10000, // 10 seconds
+} as const;
