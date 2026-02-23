@@ -46,7 +46,7 @@ html {
 
 /* Leaflet popup styling for light and dark themes */
 .leaflet-popup-content-wrapper {
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.75) !important;
   backdrop-filter: blur(8px) !important;
   border-radius: 8px !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
@@ -55,7 +55,7 @@ html {
 }
 
 .dark .leaflet-popup-content-wrapper {
-  background: rgba(31, 41, 55, 0.9) !important;
+  background: rgba(31, 41, 55, 0.75) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
   color: #f9fafb !important;
@@ -104,15 +104,21 @@ html {
 .leaflet-popup-content {
   margin: 0 !important;
   line-height: 1.4 !important;
+  background: transparent !important;
+}
+
+/* Ensure inner divs don't have opaque backgrounds */
+.leaflet-popup-content > div {
+  background: transparent !important;
 }
 
 .leaflet-popup-tip {
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.75) !important;
   box-shadow: none !important;
 }
 
 .dark .leaflet-popup-tip {
-  background: rgba(31, 41, 55, 0.9) !important;
+  background: rgba(31, 41, 55, 0.75) !important;
 }
 
 .leaflet-popup-close-button {
