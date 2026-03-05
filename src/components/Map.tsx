@@ -14,6 +14,7 @@ import { createRouteIcon, createNearbyRouteBadge } from '@/utils/routeIcons';
 import { saveRoutesToLocalStorage, resolveRoutes } from '@/utils/routeStorage';
 import { distanceMiles } from '@/utils/geoUtils';
 import type { RouteGeometry } from '@/utils/mapHelpers';
+import { chaikinSmooth } from '@/utils/mapHelpers';
 import { LocationControl } from './LocationControl';
 import { NearbyRoutesControl } from './NearbyRoutesControl';
 import { PermalinkButton } from './PermalinkButton';
@@ -552,13 +553,13 @@ export default function Map() {
 
             if (feature.geometry.type === 'LineString') {
               const coords = feature.geometry.coordinates as [number, number][];
-              coordinateSets = [coords.map(coord =>
+              coordinateSets = [chaikinSmooth(coords.map(coord =>
                 [coord[1], coord[0]] as [number, number]
-              )];
+              ))];
             } else if (feature.geometry.type === 'MultiLineString') {
               const coords = feature.geometry.coordinates as [number, number][][];
               coordinateSets = coords.map(lineString =>
-                lineString.map(coord => [coord[1], coord[0]] as [number, number])
+                chaikinSmooth(lineString.map(coord => [coord[1], coord[0]] as [number, number]))
               );
             }
 
@@ -637,13 +638,13 @@ export default function Map() {
             if (!routeCoords[route]) routeCoords[route] = [];
 
             if (feature.geometry.type === 'LineString') {
-              const coords = (feature.geometry.coordinates as [number, number][]).map(
+              const coords = chaikinSmooth((feature.geometry.coordinates as [number, number][]).map(
                 coord => [coord[1], coord[0]] as [number, number]
-              );
+              ));
               routeCoords[route].push(coords);
             } else if (feature.geometry.type === 'MultiLineString') {
               (feature.geometry.coordinates as [number, number][][]).forEach(lineString => {
-                const coords = lineString.map(coord => [coord[1], coord[0]] as [number, number]);
+                const coords = chaikinSmooth(lineString.map(coord => [coord[1], coord[0]] as [number, number]));
                 routeCoords[route].push(coords);
               });
             }
