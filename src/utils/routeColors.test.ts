@@ -13,7 +13,7 @@ describe('routeColors', () => {
       expect(ROUTE_COLORS['12']).toBe('#4ECDC4');
       expect(ROUTE_COLORS['21']).toBe('#45B7D1');
       expect(ROUTE_COLORS['42']).toBe('#96CEB4');
-      expect(ROUTE_COLORS['47']).toBe('#FFEAA7');
+      expect(ROUTE_COLORS['47']).toBe('#f6d66d');
       expect(ROUTE_COLORS['57']).toBe('#DDA0DD');
     });
 
