@@ -582,38 +582,17 @@ export default function Map() {
 
             return (
               <Fragment key={`nearby-route-group-${route}-${index}`}>
-                {/* Polylines */}
-                {coordinateSets.map((coordinates, segmentIndex) => (
-                  <Polyline
-                    key={`nearby-route-${route}-${index}-${segmentIndex}`}
-                    positions={coordinates}
-                    pathOptions={{
-                      color: isDark ? '#888888' : '#666666',
-                      weight: 3,
-                      opacity: isDark ? 0.3 : 0.4,
-                      dashArray: '8, 4',
-                    }}
-                  >
-                    <Popup>
-                      <div style={{ padding: '8px', minWidth: '150px' }}>
-                        <h3 style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
-                          {isRegionalRailRoute(route)
-                            ? `Rail ${route}`
-                            : route.startsWith('T')
-                            ? `Trolley ${route}`
-                            : `Route ${route}`}
-                        </h3>
-                        <button
-                          onClick={() => addRoute(route)}
-                          className="w-full px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded"
-                          disabled={selectedRoutes.length >= 10}
-                        >
-                          Add to my routes
-                        </button>
-                      </div>
-                    </Popup>
-                  </Polyline>
-                ))}
+                {/* Single Polyline with all segments — one SVG path element avoids opacity stacking */}
+                <Polyline
+                  key={`nearby-route-${route}-${index}`}
+                  positions={coordinateSets}
+                  pathOptions={{
+                    color: isDark ? '#888888' : '#666666',
+                    weight: 3,
+                    opacity: isDark ? 0.3 : 0.4,
+                    dashArray: '8, 4',
+                  }}
+                />
 
                 {/* Static badge marker - diamond shaped, positioned closest to user */}
                 {badgePosition && (
@@ -646,30 +625,34 @@ export default function Map() {
             );
           }).flat()}
 
-        {/* Official SEPTA route paths */}
-        {routeGeometry.map((feature, index) => {
-          const route = feature.properties.LineAbbr;
+        {/* Official SEPTA route paths — one Polyline (one SVG path) per route to avoid opacity stacking */}
+        {(() => {
+          // Group all coordinate sets by route so every segment for a route
+          // lands in a single SVG <path> element; opacity then applies to the
+          // whole path instead of compounding where individual segments overlap.
+          const routeCoords: Record<string, [number, number][][]> = {};
 
-          // Convert GeoJSON coordinates to Leaflet format
-          // Keep MultiLineString segments separate to avoid connecting disconnected segments
-          let coordinateSets: [number, number][][] = [];
+          routeGeometry.forEach(feature => {
+            const route = feature.properties.LineAbbr;
+            if (!routeCoords[route]) routeCoords[route] = [];
 
-          if (feature.geometry.type === 'LineString') {
-            const coords = feature.geometry.coordinates as [number, number][];
-            coordinateSets = [coords.map(coord =>
-              [coord[1], coord[0]] as [number, number]
-            )];
-          } else if (feature.geometry.type === 'MultiLineString') {
-            const coords = feature.geometry.coordinates as [number, number][][];
-            coordinateSets = coords.map(lineString =>
-              lineString.map(coord => [coord[1], coord[0]] as [number, number])
-            );
-          }
+            if (feature.geometry.type === 'LineString') {
+              const coords = (feature.geometry.coordinates as [number, number][]).map(
+                coord => [coord[1], coord[0]] as [number, number]
+              );
+              routeCoords[route].push(coords);
+            } else if (feature.geometry.type === 'MultiLineString') {
+              (feature.geometry.coordinates as [number, number][][]).forEach(lineString => {
+                const coords = lineString.map(coord => [coord[1], coord[0]] as [number, number]);
+                routeCoords[route].push(coords);
+              });
+            }
+          });
 
-          return coordinateSets.map((coordinates, segmentIndex) => (
+          return Object.entries(routeCoords).map(([route, allCoords]) => (
             <Polyline
-              key={`route-${route}-${index}-${segmentIndex}`}
-              positions={coordinates}
+              key={`route-${route}`}
+              positions={allCoords}
               pathOptions={{
                 color: generateRouteColor(route),
                 weight: 4,
@@ -677,7 +660,7 @@ export default function Map() {
               }}
             />
           ));
-        }).flat()}
+        })()}
         
         {vehicles.map((vehicle) => (
           <Marker
