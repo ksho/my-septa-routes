@@ -19,6 +19,54 @@ import { NearbyRoutesControl } from './NearbyRoutesControl';
 import { PermalinkButton } from './PermalinkButton';
 import { ThemeToggle } from './ThemeToggle';
 
+// Defined at module level so their identity is stable across Map re-renders.
+// If defined inside Map, React sees a new component type every render and
+// unmounts + remounts them on every state change.
+function DragDetector({ onDragStart }: { onDragStart: () => void }) {
+  const map = useMap();
+  useEffect(() => {
+    map.on('dragstart', onDragStart);
+    return () => {
+      map.off('dragstart', onDragStart);
+    };
+  }, [map, onDragStart]);
+  return null;
+}
+
+function MapController({ userLocation, enabled, isManuallyDragged, hasInitialZoomRef }: {
+  userLocation: { lat: number; lng: number } | null;
+  enabled: boolean;
+  isManuallyDragged: boolean;
+  hasInitialZoomRef: React.MutableRefObject<boolean>;
+}) {
+  const map = useMap();
+  const previouslyDraggedRef = useRef(false);
+
+  useEffect(() => {
+    const justRecentered = previouslyDraggedRef.current && !isManuallyDragged;
+    previouslyDraggedRef.current = isManuallyDragged;
+
+    if (enabled && userLocation && !isManuallyDragged) {
+      if (!hasInitialZoomRef.current || justRecentered) {
+        map.flyTo([userLocation.lat, userLocation.lng], justRecentered ? map.getZoom() : 15, {
+          duration: 1.5,
+          easeLinearity: 0.25
+        });
+        if (!hasInitialZoomRef.current) {
+          hasInitialZoomRef.current = true;
+        }
+      } else {
+        map.panTo([userLocation.lat, userLocation.lng], {
+          animate: true,
+          duration: 1.0
+        });
+      }
+    }
+  }, [userLocation, enabled, isManuallyDragged, map, hasInitialZoomRef]);
+
+  return null;
+}
+
 interface Vehicle {
   lat: number;
   lng: number;
@@ -81,6 +129,8 @@ export default function Map() {
   const [nearbyRouteFeatures, setNearbyRouteFeatures] = useState<RouteFeature[]>([]);
   const lastNearbyQueryLocation = useRef<{ lat: number; lng: number } | null>(null);
   const lastNearbyQueryTime = useRef<number>(0);
+  const geometryAbortRef = useRef<AbortController | null>(null);
+  const isInitializedRef = useRef(false);
 
   // Determine if we should use dark theme
   const isDark = mounted ? (theme === 'dark' || (theme === 'system' && systemTheme === 'dark')) : false;
@@ -164,11 +214,6 @@ export default function Map() {
     }
   }, [nearbyRoutesEnabled]);
 
-  // Get routes from URL, local storage, or defaults (in that priority order)
-  const getRoutesFromURL = useCallback(() => {
-    return resolveRoutes(searchParams.get('routes'), DEFAULT_ROUTES);
-  }, [searchParams]);
-  
   // Update URL and local storage when routes change
   const updateURL = useCallback((routes: string[]) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -223,53 +268,59 @@ export default function Map() {
   ).slice(0, 10); // Limit search results
 
   const fetchRouteGeometry = async () => {
-    if (selectedRoutes.length === 0) return;
-    
+    if (selectedRoutes.length === 0) {
+      setRouteGeometry([]);
+      return;
+    }
+
+    // Cancel any in-flight geometry fetch before starting a new one
+    geometryAbortRef.current?.abort();
+    geometryAbortRef.current = new AbortController();
+    const { signal } = geometryAbortRef.current;
+
     try {
-      console.log('Fetching route geometry for routes:', selectedRoutes.join(','));
-      
-      // Separate routes by type
       const busAndTrolleyRoutes = selectedRoutes.filter(route => !isRegionalRailRoute(route));
       const railRoutes = selectedRoutes.filter(route => isRegionalRailRoute(route));
-      
+
       const allFeatures: RouteFeature[] = [];
-      
-      // Fetch bus and trolley geometry
+
       if (busAndTrolleyRoutes.length > 0) {
         try {
-          const busResponse = await fetch(`/api/routes?routes=${busAndTrolleyRoutes.join(',')}`);
+          const busResponse = await fetch(`/api/routes?routes=${busAndTrolleyRoutes.join(',')}`, { signal });
           if (busResponse.ok) {
             const busData = await busResponse.json();
             if (busData.features && Array.isArray(busData.features)) {
-              console.log('Bus/trolley features found:', busData.features.length);
               allFeatures.push(...busData.features);
             }
           }
         } catch (error) {
+          if ((error as Error).name === 'AbortError') return;
           console.error('Error fetching bus/trolley geometry:', error);
         }
       }
-      
-      // Fetch Regional Rail geometry
+
       if (railRoutes.length > 0) {
         try {
-          const railResponse = await fetch(`/api/rail-geometry?routes=${railRoutes.join(',')}`);
+          const railResponse = await fetch(`/api/rail-geometry?routes=${railRoutes.join(',')}`, { signal });
           if (railResponse.ok) {
             const railData = await railResponse.json();
             if (railData.features && Array.isArray(railData.features)) {
-              console.log('Rail features found:', railData.features.length);
               allFeatures.push(...railData.features);
             }
           }
         } catch (error) {
+          if ((error as Error).name === 'AbortError') return;
           console.error('Error fetching rail geometry:', error);
         }
       }
-      
-      console.log('Combined route geometry data received, total features:', allFeatures.length);
-      setRouteGeometry(allFeatures);
+
+      if (!signal.aborted) {
+        setRouteGeometry(allFeatures);
+      }
     } catch (error) {
-      console.error('Error fetching route geometry:', error);
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Error fetching route geometry:', error);
+      }
     }
   };
 
@@ -296,13 +347,20 @@ export default function Map() {
       const data = await response.json();
 
       if (data.bus && Array.isArray(data.bus)) {
-        // Filter out invalid coordinates
-        const validVehicles = data.bus.filter((vehicle: Vehicle) =>
-          !isNaN(vehicle.lat) &&
-          !isNaN(vehicle.lng) &&
-          vehicle.lat !== 0 &&
-          vehicle.lng !== 0
-        );
+        // Filter out invalid coordinates and deduplicate by VehicleID+route.
+        // The SEPTA API sometimes returns multiple entries with VehicleID "0"
+        // (a placeholder for vehicles that don't report their ID), which would
+        // cause duplicate React keys.
+        const seen = new Set<string>();
+        const validVehicles = data.bus.filter((vehicle: Vehicle) => {
+          if (isNaN(vehicle.lat) || isNaN(vehicle.lng) || vehicle.lat === 0 || vehicle.lng === 0) {
+            return false;
+          }
+          const key = `${vehicle.VehicleID}-${vehicle.label}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         setVehicles(validVehicles);
       } else {
         setVehicles([]);
@@ -316,17 +374,21 @@ export default function Map() {
     }
   };
 
-  // Initialize routes from URL on component mount
+  // Initialize routes from URL on component mount — runs exactly once.
+  // Must NOT depend on searchParams/updateURL because updateURL calls router.push(),
+  // which changes searchParams, which would re-trigger this effect and double every fetch.
   useEffect(() => {
-    const routes = getRoutesFromURL();
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    const routes = resolveRoutes(searchParams.get('routes'), DEFAULT_ROUTES);
     setSelectedRoutes(routes);
-    // If no query params exist, populate the URL so it stays shareable
     if (!searchParams.get('routes')) {
       updateURL(routes);
     }
     fetchAvailableRoutes();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getRoutesFromURL]);
+  }, []);
   
   // Fetch data when selected routes change
   useEffect(() => {
@@ -463,65 +525,6 @@ export default function Map() {
     fetchNearbyRoutes();
   }, [nearbyRoutesEnabled, userLocation]);
 
-  // Inner component to detect map drag events
-  function DragDetector({ onDragStart }: { onDragStart: () => void }) {
-    const map = useMap();
-
-    useEffect(() => {
-      const handleDragStart = () => {
-        onDragStart();
-      };
-
-      map.on('dragstart', handleDragStart);
-
-      return () => {
-        map.off('dragstart', handleDragStart);
-      };
-    }, [map, onDragStart]);
-
-    return null;
-  }
-
-  // Inner component to control map viewport
-  function MapController({ userLocation, enabled, isManuallyDragged, hasInitialZoomRef }: {
-    userLocation: { lat: number; lng: number } | null;
-    enabled: boolean;
-    isManuallyDragged: boolean;
-    hasInitialZoomRef: React.MutableRefObject<boolean>;
-  }) {
-    const map = useMap();
-    const previouslyDraggedRef = useRef(false);
-
-    useEffect(() => {
-      // Check if user just clicked re-center (transition from dragged to not dragged)
-      const justRecentered = previouslyDraggedRef.current && !isManuallyDragged;
-      previouslyDraggedRef.current = isManuallyDragged;
-
-      if (enabled && userLocation && !isManuallyDragged) {
-        if (!hasInitialZoomRef.current || justRecentered) {
-          // First time or just re-centered: fly to user location
-          console.log(justRecentered ? 'Re-centering to:' : 'Initial zoom to:', userLocation);
-          map.flyTo([userLocation.lat, userLocation.lng], justRecentered ? map.getZoom() : 15, {
-            duration: 1.5,
-            easeLinearity: 0.25
-          });
-          if (!hasInitialZoomRef.current) {
-            hasInitialZoomRef.current = true;
-          }
-        } else {
-          // Subsequent updates: only pan, don't change zoom
-          console.log('Panning to:', userLocation);
-          map.panTo([userLocation.lat, userLocation.lng], {
-            animate: true,
-            duration: 1.0
-          });
-        }
-      }
-    }, [userLocation, enabled, isManuallyDragged, map, hasInitialZoomRef]);
-
-    return null;
-  }
-
   return (
     <div className="w-full h-screen">
       <MapContainer
@@ -646,8 +649,7 @@ export default function Map() {
         {/* Official SEPTA route paths */}
         {routeGeometry.map((feature, index) => {
           const route = feature.properties.LineAbbr;
-          console.log('Processing route:', route, 'geometry type:', feature.geometry.type);
-          
+
           // Convert GeoJSON coordinates to Leaflet format
           // Keep MultiLineString segments separate to avoid connecting disconnected segments
           let coordinateSets: [number, number][][] = [];
@@ -663,9 +665,7 @@ export default function Map() {
               lineString.map(coord => [coord[1], coord[0]] as [number, number])
             );
           }
-          
-          console.log('Route', route, 'has', coordinateSets.length, 'line segments');
-          
+
           return coordinateSets.map((coordinates, segmentIndex) => (
             <Polyline
               key={`route-${route}-${index}-${segmentIndex}`}
@@ -679,9 +679,9 @@ export default function Map() {
           ));
         }).flat()}
         
-        {vehicles.map((vehicle, index) => (
+        {vehicles.map((vehicle) => (
           <Marker
-            key={`${vehicle.VehicleID}-${index}`}
+            key={`${vehicle.VehicleID}-${vehicle.label}`}
             position={[vehicle.lat, vehicle.lng]}
             icon={createRouteIcon(vehicle.label)}
           >
