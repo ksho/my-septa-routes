@@ -160,6 +160,33 @@ export interface AllRoutesResponse {
 }
 
 /**
+ * GTFS-RT Alert entity from SEPTA's protobuf feed (parsed format)
+ * @see http://www3.septa.org/gtfsrt/septa-pa-us/Alert/print.php
+ */
+export interface GtfsRtAlertEntity {
+  id: string;
+  alert: {
+    informedEntities: Array<{ routeId?: string; agencyId?: string }>;
+    cause?: string;
+    effect?: string;
+    headerText?: string;
+    descriptionText?: string;
+    activePeriod?: { start?: number; end?: number };
+  };
+}
+
+/**
+ * Simplified alert shape returned to the client
+ */
+export interface ParsedRouteAlert {
+  id: string;
+  cause?: string;
+  effect?: string;
+  header: string;
+  description?: string;
+}
+
+/**
  * GTFS-RT Vehicle entity from SEPTA's protobuf feed (parsed format)
  * @see http://www3.septa.org/gtfsrt/septa-pa-us/Vehicle/print.php
  */
