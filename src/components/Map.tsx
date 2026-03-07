@@ -15,6 +15,7 @@ import { saveRoutesToLocalStorage, resolveRoutes } from '@/utils/routeStorage';
 import { distanceMiles } from '@/utils/geoUtils';
 import type { RouteGeometry } from '@/utils/mapHelpers';
 import { chaikinSmooth } from '@/utils/mapHelpers';
+import { apiPath } from '@/lib/apiBase';
 import { LocationControl } from './LocationControl';
 import { NearbyRoutesControl } from './NearbyRoutesControl';
 import { PermalinkButton } from './PermalinkButton';
@@ -264,7 +265,7 @@ export default function Map() {
   // Fetch available routes for search
   const fetchAvailableRoutes = async () => {
     try {
-      const response = await fetch('/api/all-routes');
+      const response = await fetch(apiPath('/api/all-routes'));
       if (response.ok) {
         const data = await response.json();
         setAvailableRoutes(data.routes || []);
@@ -300,7 +301,7 @@ export default function Map() {
 
       if (busAndTrolleyRoutes.length > 0) {
         try {
-          const busResponse = await fetch(`/api/routes?routes=${busAndTrolleyRoutes.join(',')}`, { signal });
+          const busResponse = await fetch(apiPath(`/api/routes?routes=${busAndTrolleyRoutes.join(',')}`), { signal });
           if (busResponse.ok) {
             const busData = await busResponse.json();
             if (busData.features && Array.isArray(busData.features)) {
@@ -315,7 +316,7 @@ export default function Map() {
 
       if (railRoutes.length > 0) {
         try {
-          const railResponse = await fetch(`/api/rail-geometry?routes=${railRoutes.join(',')}`, { signal });
+          const railResponse = await fetch(apiPath(`/api/rail-geometry?routes=${railRoutes.join(',')}`), { signal });
           if (railResponse.ok) {
             const railData = await railResponse.json();
             if (railData.features && Array.isArray(railData.features)) {
@@ -349,7 +350,7 @@ export default function Map() {
       // Use optimized bulk endpoint - fetches all routes in a single API call
       // This reduces Vercel function invocations from N to 1 (massive cost savings)
       const routesParam = selectedRoutes.join(',');
-      const response = await fetch(`/api/vehicles?routes=${encodeURIComponent(routesParam)}`);
+      const response = await fetch(apiPath(`/api/vehicles?routes=${encodeURIComponent(routesParam)}`));
 
       if (!response.ok) {
         console.warn(`Failed to fetch vehicle data: ${response.status}`);
@@ -394,7 +395,7 @@ export default function Map() {
       return;
     }
     try {
-      const response = await fetch(`/api/alerts?routes=${selectedRoutes.join(',')}`);
+      const response = await fetch(apiPath(`/api/alerts?routes=${selectedRoutes.join(',')}`));
       if (response.ok) {
         const data = await response.json();
         setRouteAlerts(data.alerts ?? {});
@@ -541,7 +542,7 @@ export default function Map() {
     const fetchNearbyRoutes = async () => {
       try {
         const response = await fetch(
-          `/api/nearby-routes?lat=${userLocation.lat}&lng=${userLocation.lng}&distance=${NEARBY_ROUTES_CONFIG.QUERY_DISTANCE}`
+          apiPath(`/api/nearby-routes?lat=${userLocation.lat}&lng=${userLocation.lng}&distance=${NEARBY_ROUTES_CONFIG.QUERY_DISTANCE}`)
         );
 
         if (!response.ok) {

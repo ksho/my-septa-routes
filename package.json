@@ -6,6 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "npm run test:run && next build",
     "build:skip-tests": "next build",
+    "build:mobile": "npm run test:run && NEXT_MOBILE_EXPORT=1 next build",
+    "build:mobile:skip-tests": "NEXT_MOBILE_EXPORT=1 next build",
+    "cap:sync:ios": "npx cap sync ios",
+    "cap:open:ios": "npx cap open ios",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
@@ -14,6 +18,12 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/geolocation": "^8.1.0",
+    "@capacitor/haptics": "^8.0.1",
+    "@capacitor/ios": "^8.2.0",
+    "@capacitor/local-notifications": "^8.0.2",
+    "@capacitor/push-notifications": "^8.0.2",
     "@maplibre/maplibre-gl-leaflet": "^0.1.3",
     "@types/leaflet": "^1.9.20",
     "@vercel/analytics": "^1.5.0",
@@ -26,6 +36,7 @@
     "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.2.0",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
