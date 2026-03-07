@@ -14,6 +14,9 @@ export const SEPTA_API_ENDPOINTS = {
 
   /** GTFS-RT vehicle positions for subway lines (BSL, MFL) - human-readable format */
   GTFS_RT_VEHICLES: 'http://www3.septa.org/gtfsrt/septa-pa-us/Vehicle/print.php',
+
+  /** GTFS-RT service alerts for all routes - human-readable format */
+  GTFS_RT_ALERTS: 'http://www3.septa.org/gtfsrt/septa-pa-us/Alert/print.php',
 } as const;
 
 /**

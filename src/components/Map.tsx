@@ -84,6 +84,14 @@ interface Route {
   type?: string;
 }
 
+interface RouteAlert {
+  id: string;
+  cause?: string;
+  effect?: string;
+  header: string;
+  description?: string;
+}
+
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -124,6 +132,10 @@ export default function Map() {
   const [watchId, setWatchId] = useState<number | null>(null);
   const [isManuallyDragged, setIsManuallyDragged] = useState(false);
   const hasInitialZoomRef = useRef(false);
+
+  // Service alerts state
+  const [routeAlerts, setRouteAlerts] = useState<Record<string, RouteAlert[]>>({});
+  const [openAlertRoute, setOpenAlertRoute] = useState<string | null>(null);
 
   // Nearby routes discovery state
   const [nearbyRoutesEnabled, setNearbyRoutesEnabled] = useState(false);
@@ -246,6 +258,7 @@ export default function Map() {
     const newRoutes = selectedRoutes.filter(r => r !== routeNumber);
     setSelectedRoutes(newRoutes);
     updateURL(newRoutes);
+    setOpenAlertRoute(prev => prev === routeNumber ? null : prev);
   }, [selectedRoutes, updateURL]);
   
   // Fetch available routes for search
@@ -375,6 +388,22 @@ export default function Map() {
     }
   };
 
+  const fetchAlerts = async () => {
+    if (selectedRoutes.length === 0) {
+      setRouteAlerts({});
+      return;
+    }
+    try {
+      const response = await fetch(`/api/alerts?routes=${selectedRoutes.join(',')}`);
+      if (response.ok) {
+        const data = await response.json();
+        setRouteAlerts(data.alerts ?? {});
+      }
+    } catch (error) {
+      console.error('Error fetching service alerts:', error);
+    }
+  };
+
   // Initialize routes from URL on component mount — runs exactly once.
   // Must NOT depend on searchParams/updateURL because updateURL calls router.push(),
   // which changes searchParams, which would re-trigger this effect and double every fetch.
@@ -395,6 +424,15 @@ export default function Map() {
   useEffect(() => {
     fetchRouteGeometry();
     fetchVehicleData();
+    fetchAlerts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoutes]);
+
+  // Poll alerts every 60 seconds (alerts change far less frequently than vehicle positions)
+  useEffect(() => {
+    if (selectedRoutes.length === 0) return;
+    const interval = setInterval(fetchAlerts, 60_000);
+    return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoutes]);
   
@@ -848,19 +886,31 @@ export default function Map() {
               ) : (
                 selectedRoutes.map(route => {
                   const count = vehicles.filter(v => v.label === route).length;
+                  const hasAlert = !!routeAlerts[route]?.length;
                   return (
-                    <div key={route} className="grid grid-cols-[16px_1fr_24px_20px] gap-2 items-center">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
+                    <div key={route} className="grid grid-cols-[16px_1fr_20px_24px_20px] gap-2 items-center">
+                      <div
+                        className="w-3 h-3 rounded-full"
                         style={{backgroundColor: generateRouteColor(route)}}
                       ></div>
                       <span className="text-gray-900 dark:text-white">
                         {isRegionalRailRoute(route)
                           ? `Rail ${route}`
-                          : route.startsWith('T') 
+                          : route.startsWith('T')
                           ? `Trolley ${route}`
                           : `Route ${route}`}
                       </span>
+                      {hasAlert ? (
+                        <button
+                          onClick={() => setOpenAlertRoute(openAlertRoute === route ? null : route)}
+                          className="w-5 h-5 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center"
+                          title="View service alert"
+                        >
+                          !
+                        </button>
+                      ) : (
+                        <div />
+                      )}
                       <span className="italic text-right text-gray-600 dark:text-gray-300">({count})</span>
                       <button
                         onClick={() => removeRoute(route)}
@@ -881,6 +931,53 @@ export default function Map() {
           </div>
         </div>
       </div>
+
+      {/* Service alert popover — appears to the right of the route drawer */}
+      {openAlertRoute && routeAlerts[openAlertRoute]?.length > 0 && (
+        <>
+          {/* Invisible backdrop to dismiss on outside click */}
+          <div className="fixed inset-0 z-[999]" onClick={() => setOpenAlertRoute(null)} />
+          <div className="absolute bottom-4 left-[280px] z-[1000] w-72 max-h-72 overflow-y-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-lg shadow-lg">
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-bold text-sm text-amber-600 dark:text-amber-400">
+                  ⚠ {isRegionalRailRoute(openAlertRoute)
+                    ? `Rail ${openAlertRoute}`
+                    : openAlertRoute.startsWith('T')
+                    ? `Trolley ${openAlertRoute}`
+                    : `Route ${openAlertRoute}`} Alert
+                </h4>
+                <button
+                  onClick={() => setOpenAlertRoute(null)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-bold text-lg leading-none ml-2"
+                  aria-label="Close alert"
+                >
+                  ×
+                </button>
+              </div>
+              {routeAlerts[openAlertRoute].map((alert, i) => (
+                <div
+                  key={alert.id}
+                  className={`text-xs space-y-1 ${i > 0 ? 'mt-3 pt-3 border-t border-gray-200 dark:border-gray-600' : ''}`}
+                >
+                  <p className="font-semibold text-gray-900 dark:text-white">{alert.header}</p>
+                  {alert.description && (
+                    <p className="text-gray-600 dark:text-gray-400">{alert.description}</p>
+                  )}
+                  {(alert.effect || alert.cause) && (
+                    <p className="text-amber-600 dark:text-amber-400 capitalize">
+                      {[alert.effect, alert.cause]
+                        .filter(Boolean)
+                        .map(s => s!.toLowerCase().replace(/_/g, ' '))
+                        .join(' · ')}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Top-right controls */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
